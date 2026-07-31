@@ -1,139 +1,212 @@
-# Timeline Estimator Widget — Plan Tab & Tab Reorder Implementation Plan
+# Timeline Estimator Widget — Implementation Plan v2
 
-## Current State
+## Summary of Changes
 
-The widget is a **Figma Widget** (not a plugin) that lives on the canvas as an interactive table. Clicking the ⚙️ gear icon opens a settings popup (iframe UI) with 3 tabs:
-
-**Current tab order**: Structure → Templates → Roster
-
-**How dates work today**: Each `daterange` column cell is set by clicking it → opening a date picker popup → manually entering start & end dates. Dates are stored as `DateRangeData` with revision history.
+Two features:
+1. **Reorder settings tabs** → Templates → Roster → Structure
+2. **New "Plan" feature** — a separate popup (not inside Settings) for auto-calculating date ranges from start dates + durations
 
 ---
 
-## What We're Changing
+## 1. Tab Reorder (Settings Popup)
 
-### 1. Reorder Settings Tabs
+**Current**: Structure → Templates → Roster  
+**New**: Templates → Roster → Structure
 
-**New tab order**: `Templates` → `Roster` → `Structure`
+Default active tab changes from `'structure'` to `'templates'`.
+
+Files touched: `ui.tsx` only — tab state default + JSX render order.
 
 ---
 
-### 2. Add "Plan" Tab — Auto-Calculate Date Ranges
+## 2. Plan Feature — Separate Flow
 
-A new 4th tab in the settings popup where users define **start date + duration per row** and the widget **auto-calculates all daterange columns**.
+### Why separate from Settings?
 
-#### How it works
+User must add rows first (via the widget table) before planning dates. The Plan popup operates on existing row/column data — it's a distinct workflow from configuring templates, roster, or structure.
+
+### Entry Point
+
+A new **📅 Plan icon** in the widget title bar, next to the existing ⚙️ gear icon. Clicking it opens a dedicated popup via `showUI()`.
+
+### Plan Popup UI
 
 ```
-Templates → Roster → Structure → Plan
+┌─────────────────────────────────────────────────────────────────┐
+│  Plan Timeline                                              [x] │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Row: "Onboarding flow"                                         │
+│  Start Date: [2025-08-01    📅]                                 │
+│                                                                 │
+│  ┌──────────────────────┬───────────┐                           │
+│  │ Column               │ Days      │                           │
+│  ├──────────────────────┼───────────┤                           │
+│  │ Screenshot mapping   │ [1    ]   │  ← default 1, editable   │
+│  │ Master screen anal.  │ [1    ]   │                           │
+│  │ VD start date        │ [2    ]   │                           │
+│  │ Draft 1 review       │ [0.5  ]   │                           │
+│  │ Feedback updates     │ [1    ]   │                           │
+│  │ ...                  │ ...       │                           │
+│  └──────────────────────┴───────────┘                           │
+│                                                                 │
+│  ─────────────────────────────────────                          │
+│                                                                 │
+│  Row: "Dashboard"                                               │
+│  Start Date: [          📅]   ← empty = chains from prev row   │
+│  ...                                                            │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  ⚠ This will overwrite existing dates. Continue?        │    │
+│  │  [Apply Plan]                       [Cancel]            │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-##### Input UI (per row)
-For each row in the widget, the Plan tab shows:
+- Only **daterange** columns are listed as duration inputs
+- Text, status, and assignee columns are skipped
+- Default duration = **1 day** (pre-filled)
+- Minimum value = **0.5 days**, step = 0.5
+- Start Date for first row: **required** (user must pick one)
+- Start Date for subsequent rows: **optional** — if empty, chains from previous row's last daterange column end date + 1 business day
 
-| Row Name | Start Date | Col 1 (days) | Col 2 (days) | Col 3 (days) | ... |
-|----------|------------|---------------|---------------|---------------|-----|
-| Task 1   | 📅 picker  | 1             | 0.5           | 2             | ... |
-| Task 2   | 📅 picker  | 3             | 1             | 0.5           | ... |
+### Date Calculation Logic
 
-- **Start Date**: A date input per row — the date this row's first column begins.
-- **Days per column**: A number input for each `daterange` column in the template. Minimum value: `0.5`. Default: empty.
-- Only `daterange` type columns appear as day-input columns. Text/status/assignee columns are skipped.
-
-##### Calculation Logic
-
-For a given row, dates flow **left-to-right sequentially** across daterange columns:
+**Business days only** (Mon–Fri, weekends skipped).
 
 ```
-Column 1 start = Row Start Date
-Column 1 end   = Column 1 start + (days - 1)     [if days >= 1]
-                  OR Column 1 start               [if days = 0.5, single date]
-Column 2 start = Column 1 end + 1 business day
-Column 2 end   = Column 2 start + (days - 1)      ...and so on
+For each row (top to bottom):
+
+  If row has no start date AND it's the first row → skip entirely
+  If row has no start date AND previous row exists →
+    start = previous_row_last_daterange_column_end + 1 business day
+
+  cursor = row start date
+
+  For each daterange column (left to right):
+    duration = user-specified days (default: 1)
+
+    if duration == 0.5:
+      start = cursor, end = cursor  (single date)
+      cursor = next business day after cursor
+
+    if duration == 1:
+      start = cursor, end = cursor  (single date)
+      cursor = next business day after cursor
+
+    if duration > 1:
+      days_to_add = ceil(duration) - 1
+      start = cursor
+      end = cursor + days_to_add business days
+      cursor = next business day after end
+
+    Write { start, end } as DateRangeData into row.cells[colId]
 ```
 
-**Rules:**
-- `0.5 days` → single date (start = end, displayed as just one date, e.g. "15 July")
-- `1 day` → single date (start = end)
-- `1.5 days` → start date + 1 day range (rounds up, so 2-day range)  
-- `2 days` → start date to start+1 (2 calendar days)
-- Each subsequent column picks up from the **next day** after the previous column ended
-- **Weekend skipping**: OFF by default (all calendar days counted)
+**Key rules:**
+- `0.5 days` → single date (same as 1 day visually, but semantically half-day)
+- `1 day` → single date
+- `1.5 days` → 2 business days (ceil)
+- `2 days` → start + 1 business day
+- `3 days` → start + 2 business days
+- Cursor always advances to the **next business day after the end date** for the next column
+- Row-to-row chaining: next row starts on the business day after the previous row's last daterange column ended
 
-##### What happens on "Apply Plan"
+### Confirmation
 
-When the user clicks **"Apply Plan"**, for each row:
-1. Calculate all date ranges per the logic above
-2. Write the computed values into the widget's `rowsMap` for each daterange cell as a `DateRangeData` object
-3. The mode is `'update'` (not `'revise'`) — it's a fresh set, not a revision
-4. If a cell already has data and history, applying the plan will **overwrite it as a new update** (history is preserved, a new entry is pushed)
+Before writing any data, show an **inline confirmation banner** (not `window.confirm()`):
+> "⚠ This will overwrite existing date values. Existing revision history will be preserved."  
+> [Apply Plan] [Cancel]
+
+### Data Write Behavior
+
+For each cell being written:
+- If cell has no existing data → create fresh `DateRangeData` with one history entry (`mode: 'update'`)
+- If cell already has data → push a new history entry with `changedBy: currentUser`, `reason: 'Auto-planned'`, then set `current` to the new value
 
 ---
 
-## Proposed Changes
-
-### UI Layer — `timeline-estimator-widget/src/ui.tsx`
-
-1. **Reorder tabs** — Change default tab from `'structure'` to `'templates'`. Reorder the tab buttons in the JSX to: Templates → Roster → Structure → Plan.
-
-2. **Add `'plan'` to tab state** — Extend the tab union type:
-   ```ts
-   useState<'roster' | 'structure' | 'templates' | 'plan'>('templates')
-   ```
-
-3. **Add Plan tab UI** — A new panel that:
-   - Lists each row (by its text column value / "Row N" fallback)
-   - Has a date input for each row's start date
-   - Has a number input (step=0.5, min=0.5) for each daterange column
-   - Has an "Apply Plan" button at the bottom
-   - Sends an `'apply-plan'` event with the computed date data
+## Proposed File Changes
 
 ---
 
-### Widget Layer — `timeline-estimator-widget/src/main.tsx`
+### [MODIFY] [ui.tsx](file:///d:/Sagnik/Documents/Claude/Projects/timeline-estimator-plugin/timeline-estimator-widget/src/ui.tsx)
 
-1. **Pass rows data to the settings UI** — Currently `handleOpenSettings` only sends `columns` and `roster`. We need to also send `rows` so the Plan tab can render row names and current dates.
+**Tab reorder:**
+- Change default tab state from `'structure'` to `'templates'`
+- Reorder tab buttons: Templates → Roster → Structure
+- Remove Plan from settings entirely
 
-2. **Handle `'apply-plan'` event** — New listener inside `handleOpenSettings` that receives computed date values and writes them into `rowsMap` cells as `DateRangeData`.
+**New `PlanPopup` component:**
+- Receives rows and daterange columns as props
+- Renders each row with a start date input and duration inputs per daterange column
+- Duration inputs default to `1`, min `0.5`, step `0.5`
+- Date calculation runs entirely in the iframe (simple date math, no perf concern for typical row counts)
+- On "Apply Plan", computes all `DateRangeData` objects and emits `'apply-plan'` event with the full payload
+- Inline confirmation before applying
 
 ---
 
-### Types — `timeline-estimator-widget/src/types.ts`
+### [MODIFY] [main.tsx](file:///d:/Sagnik/Documents/Claude/Projects/timeline-estimator-plugin/timeline-estimator-widget/src/main.tsx)
 
-Add the Plan data type:
+**New Plan icon in title bar:**
+- Add a 📅 calendar SVG icon next to the ⚙️ gear icon
+- Wire `onClick` to `handleOpenPlan`
+
+**`handleOpenPlan` function:**
+- Gathers current rows, columns, roster (for user name)
+- Calls `showUI({ width: 450, height: 520, title: 'Plan Timeline' }, { type: 'plan', rows, columns })`
+- Registers listener for `'apply-plan'` event
+- On receiving plan data: iterates each row's cell updates, writes `DateRangeData` into `rowsMap`
+- Calls `updateLastEdited()` after writing
+
+**Pass rows to settings UI:**
+- Also send `rows` data in `handleOpenSettings` (needed so Plan can reference row names)
+
+---
+
+### [MODIFY] [types.ts](file:///d:/Sagnik/Documents/Claude/Projects/timeline-estimator-plugin/timeline-estimator-widget/src/types.ts)
+
+Add:
 ```ts
-export interface PlanEntry {
+export interface PlanCellResult {
+  colId: string;
+  dateRange: DateRangeData;
+}
+
+export interface PlanRowResult {
   rowId: string;
-  startDate: string; // ISO date string
-  durations: { [columnId: string]: number }; // days per daterange column
+  cells: PlanCellResult[];
 }
 ```
 
+Add `'plan'` to the `UIMode` union:
+```ts
+export type UIMode = 'settings' | 'date-picker' | 'dropdown' | 'add-name' | 'plan';
+```
+
 ---
 
-## Open Questions
+## What's NOT in Scope
 
-1. **Q1: Weekend/holiday skipping?**
-   I'm assuming we count all calendar days (no weekend skipping). If you want Mon–Fri only, the calculation needs a business-day counter. Which do you prefer?
-
-2. **Q2: Should "Apply Plan" warn before overwriting existing dates?**
-   If rows already have manually-set dates with revision history, applying the plan will push a new entry. Should we show a confirmation dialog, or just apply silently?
-
-3. **Q3: Where does the calculation happen — UI iframe or widget main?**
-   I'm planning to do the date math in the **UI iframe** (`ui.tsx`) and send the fully computed `DateRangeData` objects back. This keeps `main.tsx` simple. Alternative: send raw durations to `main.tsx` and compute there. Preference?
-
-4. **Q4: What if a row has no start date or a column has no duration?**
-   My assumption: skip that cell (leave it unchanged). If the start date is missing, skip the entire row. If a specific column's duration is empty, skip that column and the next column starts from where the last filled one ended. Correct?
+- Weekend toggle (enable/disable weekend skipping) — future feature
+- Holidays calendar — future feature
+- Auto-recalculation when rows change — manual "Apply Plan" only
+- Undo after applying plan — revision history serves this purpose
 
 ---
 
 ## Verification Plan
 
 ### Manual Verification
-1. Open the widget in Figma, click ⚙️ — confirm tabs appear as **Templates → Roster → Structure → Plan**
-2. Apply a template (e.g. Polaris D&E), add rows
-3. Go to Plan tab — enter start dates and durations for 2–3 rows
-4. Click "Apply Plan" — confirm dates appear correctly in the widget table
-5. Verify: 0.5 days shows as single date, 2+ days shows as range
-6. Verify: sequential columns chain correctly (Col 2 starts day after Col 1 ends)
-7. Build with `npm run build` in the widget directory — confirm no errors
+1. Open widget in Figma → confirm ⚙️ gear opens Settings with tabs: **Templates → Roster → Structure**
+2. Confirm new 📅 Plan icon appears in the widget title bar
+3. Apply Polaris D&E template, add 3 rows with task names
+4. Click 📅 → Plan popup opens showing all 3 rows with daterange columns
+5. Set start date for row 1 → verify row 2 and 3 start dates auto-chain when left empty
+6. Set various durations (0.5, 1, 2, 3) → click "Apply Plan"
+7. Confirm confirmation dialog appears → confirm → dates populate in widget
+8. Verify dates skip weekends (e.g., Fri → Mon)
+9. Verify 0.5/1 day = single date, 2+ days = range
+10. Verify existing revision history is preserved (click a date cell → check history count)
+11. Run `npm run build` in widget directory → no errors

@@ -674,4 +674,5 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
   );
 }
 
+export { DatePicker, Settings, CellDropdown, PlanPopup };
 export default render(Plugin);

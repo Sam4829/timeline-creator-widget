@@ -7,7 +7,6 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 
 ## Current State
 - **Repository Restructuring**: Original plugin files moved into `plugin/` directory while keeping `timeline-estimator-widget/` clean and untouched at root.
-- **Standalone UI Dev Harness (`npm run dev:ui`)**: Built with Vite and `@preact/preset-vite`. Renders UI popups in a plain browser tab with HMR, a real-time event logger drawer, global Light/Dark theme toggle, single popup switcher, and a **Components Inventory** side-by-side grid view for visual inspection across exact Figma popup dimensions (`PlanPopup`: 450x520, `Settings`: 400x500, `DatePicker`: 320x280, `CellDropdown`: 200x240/280).
 - **Implementation Completed**:
   - Reordered settings tabs: `Templates` → `Roster` → `Structure`.
   - Implemented 📅 **Plan Feature** as a standalone flow accessible from the widget title bar.
@@ -23,6 +22,5 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 - [x] Implement settings tab reordering (Templates → Roster → Structure).
 - [x] Implement standalone Plan popup and calculation engine in widget (`types.ts`, `ui.tsx`, `main.tsx`).
 - [x] Remove cell-based history/revision system and consolidate date string formatting.
-- [x] Create standalone browser Dev Harness (`npm run dev:ui`) with Components Inventory view.
 - [x] Verify build and typechecking.
 - [x] Push latest implementation changes to remote GitHub repo.

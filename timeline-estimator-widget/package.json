@@ -9,9 +9,7 @@
     "@create-figma-plugin/tsconfig": "^4.0.3",
     "@figma/plugin-typings": "1.109.0",
     "@figma/widget-typings": "1.11.0",
-    "@preact/preset-vite": "^2.10.6",
-    "typescript": ">=5",
-    "vite": "^8.2.0"
+    "typescript": ">=5"
   },
   "scripts": {
     "build": "build-figma-plugin --typecheck --minify",

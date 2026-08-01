@@ -25,4 +25,4 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 - [x] Remove cell-based history/revision system and consolidate date string formatting.
 - [x] Create standalone browser Dev Harness (`npm run dev:ui`) with Components Inventory view.
 - [x] Verify build and typechecking.
-- [ ] Push latest implementation changes to remote GitHub repo.
+- [x] Push latest implementation changes to remote GitHub repo.

@@ -1,5 +1,7 @@
 import { h, render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
+import '@create-figma-plugin/ui/lib/css/base.css';
+import '@create-figma-plugin/ui/lib/css/theme.css';
 import { DatePicker, PlanPopup, Settings, CellDropdown } from '../ui';
 import { mockRows, mockColumns, mockRoster, mockStatusOptions, mockAssigneeOptions } from './mockData';
 

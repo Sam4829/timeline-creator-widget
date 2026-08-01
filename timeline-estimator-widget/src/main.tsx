@@ -28,6 +28,16 @@ const getInfoIcon = (color: string) => `<svg width="12" height="12" viewBox="0 0
   <path d="M6 5.5V8.5" stroke="${color}" stroke-linecap="round"/>
 </svg>`;
 
+const getCalendarIcon = (color: string) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1.5" y="3.5" width="13" height="11" rx="1.5" stroke="${color}"/>
+  <path d="M1.5 7h13" stroke="${color}" stroke-linecap="round"/>
+  <path d="M5 1.5V4" stroke="${color}" stroke-linecap="round"/>
+  <path d="M11 1.5V4" stroke="${color}" stroke-linecap="round"/>
+  <circle cx="5" cy="10" r="1" fill="${color}"/>
+  <circle cx="8" cy="10" r="1" fill="${color}"/>
+  <circle cx="11" cy="10" r="1" fill="${color}"/>
+</svg>`;
+
 const formatFriendlyDate = (isoString: string) => {
   if (!isoString) return '';
   const parts = isoString.split('\u2013').map(p => p.trim()).filter(Boolean);
@@ -307,6 +317,68 @@ function TimelineEstimator() {
     });
   };
 
+  const handleOpenPlan = () => {
+    if (uiOpen) return new Promise<void>(r => r());
+    uiOpen = true;
+
+    return new Promise<void>((resolve) => {
+      const colsData = columns;
+      const rowsData = rows.map(r => ({
+        id: r.id,
+        order: r.order,
+        cells: r.cells
+      }));
+
+      showUI({ width: 450, height: 520, title: 'Plan Timeline' }, { type: 'plan', rows: rowsData, columns: colsData });
+      figma.ui.postMessage({ type: 'request-focus' });
+
+      setTimeout(() => {
+        const cleanupApplyPlan = on('apply-plan' as any, (planResults: any[]) => {
+          for (const rowResult of planResults) {
+            const currentRow = rowsMap.get(rowResult.rowId);
+            if (!currentRow) continue;
+
+            const newCells = { ...currentRow.cells };
+
+            for (const cellResult of rowResult.cells) {
+              const existing = newCells[cellResult.colId];
+              const incoming = cellResult.dateRange;
+
+              if (!existing || typeof existing !== 'object' || !(existing as any).current) {
+                // Fresh cell — write directly
+                newCells[cellResult.colId] = incoming;
+              } else {
+                // Cell has existing data — push new history entry, update current
+                const prev = existing as any;
+                const newHistory = [
+                  ...prev.history,
+                  {
+                    value: incoming.current,
+                    changedBy: getCurrentUserName(),
+                    changedAt: new Date().toISOString(),
+                    reason: 'Auto-planned'
+                  }
+                ];
+                newCells[cellResult.colId] = {
+                  current: incoming.current,
+                  history: newHistory
+                };
+              }
+            }
+
+            rowsMap.set(rowResult.rowId, { ...currentRow, cells: newCells });
+          }
+
+          updateLastEdited();
+          cleanupApplyPlan();
+          uiOpen = false;
+          figma.closePlugin();
+          resolve();
+        });
+      }, 0);
+    });
+  };
+
   const handleCellClick = (rowId: string, col: ColumnData & { id: string }) => {
     if (uiOpen) return new Promise<void>(r => r()); // Prevent stacking
     uiOpen = true;
@@ -567,6 +639,28 @@ function TimelineEstimator() {
         />
         <AutoLayout verticalAlignItems="center" spacing={12}>
           <Text fill={theme.subFg} fontSize={12}>Last edited: {lastEditedBy}</Text>
+          {(() => {
+            const hasRows = rows.length > 0;
+            const hasDaterangeCols = columns.some(c => c.type === 'daterange');
+            const planEnabled = hasRows && hasDaterangeCols;
+            const planTooltip = !hasRows
+              ? 'Add rows to start planning'
+              : !hasDaterangeCols
+              ? 'Add a date column to your template first'
+              : undefined;
+            return (
+              <AutoLayout
+                padding={8}
+                hoverStyle={planEnabled ? { fill: theme.subBg } : undefined}
+                cornerRadius={4}
+                opacity={planEnabled ? 1 : 0.35}
+                onClick={planEnabled ? handleOpenPlan : undefined}
+                tooltip={planTooltip}
+              >
+                <SVG src={getCalendarIcon(theme.subFg)} />
+              </AutoLayout>
+            );
+          })()}
           <AutoLayout
             padding={8}
             hoverStyle={{ fill: theme.subBg }}

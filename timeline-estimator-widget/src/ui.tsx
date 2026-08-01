@@ -41,6 +41,7 @@ function Plugin(props: any) {
       {mode === 'date-picker' && <DatePicker {...props.data} />}
       {mode === 'settings' && <Settings initialColumns={props.columns} roster={props.roster} />}
       {mode === 'dropdown' && <CellDropdown {...props.data} />}
+      {mode === 'plan' && <PlanPopup rows={props.rows} columns={props.columns} />}
     </div>
   );
 }
@@ -137,7 +138,7 @@ function DatePicker({ rowId, colId, historyCount, currentValue }: DatePickerData
 }
 
 function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (ColumnData & { id: string })[], roster: ({ id: string } & RosterMember)[] }) {
-  const [tab, setTab] = useState<'roster' | 'structure' | 'templates'>('structure');
+  const [tab, setTab] = useState<'roster' | 'structure' | 'templates'>('templates');
   const [localRoster, setLocalRoster] = useState(initialRoster);
   const [localColumns, setLocalColumns] = useState(initialColumns);
   const [newName, setNewName] = useState('');
@@ -212,14 +213,14 @@ function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (
   return (
     <Container space="medium">
       <div style={{ display: 'flex', gap: '16px', padding: '16px 0', borderBottom: '1px solid var(--figma-color-border, #e0e0e0)' }}>
-        <div onClick={() => setTab('structure')} style={{ cursor: 'pointer' }}>
-          <Text style={{ fontWeight: tab === 'structure' ? 'bold' : 'normal', color: tab === 'structure' ? 'var(--figma-color-text, #000)' : 'var(--figma-color-text-secondary, #666)' }}>Structure</Text>
-        </div>
         <div onClick={() => setTab('templates')} style={{ cursor: 'pointer' }}>
           <Text style={{ fontWeight: tab === 'templates' ? 'bold' : 'normal', color: tab === 'templates' ? 'var(--figma-color-text, #000)' : 'var(--figma-color-text-secondary, #666)' }}>Templates</Text>
         </div>
         <div onClick={() => setTab('roster')} style={{ cursor: 'pointer' }}>
           <Text style={{ fontWeight: tab === 'roster' ? 'bold' : 'normal', color: tab === 'roster' ? 'var(--figma-color-text, #000)' : 'var(--figma-color-text-secondary, #666)' }}>Roster</Text>
+        </div>
+        <div onClick={() => setTab('structure')} style={{ cursor: 'pointer' }}>
+          <Text style={{ fontWeight: tab === 'structure' ? 'bold' : 'normal', color: tab === 'structure' ? 'var(--figma-color-text, #000)' : 'var(--figma-color-text-secondary, #666)' }}>Structure</Text>
         </div>
       </div>
       <VerticalSpace space="medium" />
@@ -454,6 +455,264 @@ function CellDropdown({ rowId, colId, type, options, currentValue }: DropdownDat
         </div>
       )}
     </Container>
+  );
+}
+
+// ─── Plan Popup ──────────────────────────────────────────────────────────────
+
+// Business-day helpers
+function isWeekend(date: Date): boolean {
+  const d = date.getDay();
+  return d === 0 || d === 6;
+}
+
+function nextBusinessDay(date: Date): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + 1);
+  while (isWeekend(next)) next.setDate(next.getDate() + 1);
+  return next;
+}
+
+function addBusinessDays(date: Date, n: number): Date {
+  if (n <= 0) return new Date(date);
+  let result = new Date(date);
+  let added = 0;
+  while (added < n) {
+    result.setDate(result.getDate() + 1);
+    if (!isWeekend(result)) added++;
+  }
+  return result;
+}
+
+function toISODate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function rollToBusinessDay(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  let date = new Date(y, m - 1, d);
+  while (isWeekend(date)) date = nextBusinessDay(date);
+  return date;
+}
+
+interface PlanRowInput {
+  rowId: string;
+  label: string;
+  startDate: string;
+  durations: { [colId: string]: string }; // string so input is controlled
+}
+
+function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
+  const daterangeCols = columns.filter((c: any) => c.type === 'daterange');
+
+  const [planRows, setPlanRows] = useState<PlanRowInput[]>(() =>
+    rows.map((row: any, idx: number) => {
+      const label = (() => {
+        const textCol = columns.find((c: any) => c.type === 'text');
+        if (textCol) {
+          const val = row.cells?.[textCol.id];
+          if (typeof val === 'string' && val.trim()) return val.trim();
+        }
+        return `Row ${idx + 1}`;
+      })();
+      const durations: { [colId: string]: string } = {};
+      daterangeCols.forEach((c: any) => { durations[c.id] = '1'; });
+      return { rowId: row.id, label, startDate: '', durations };
+    })
+  );
+
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [computed, setComputed] = useState<any[] | null>(null);
+
+  const row1StartMissing = !planRows[0]?.startDate;
+  const applyDisabled = row1StartMissing;
+
+  const updateStartDate = (idx: number, val: string) => {
+    setPlanRows(prev => prev.map((r, i) => i === idx ? { ...r, startDate: val } : r));
+  };
+
+  const updateDuration = (rowIdx: number, colId: string, val: string) => {
+    setPlanRows(prev => prev.map((r, i) =>
+      i === rowIdx ? { ...r, durations: { ...r.durations, [colId]: val } } : r
+    ));
+  };
+
+  const computePlan = (): any[] => {
+    const results: any[] = [];
+    let prevRowEndForChaining: Date | null = null;
+
+    for (let ri = 0; ri < planRows.length; ri++) {
+      const pr = planRows[ri];
+      let cursor: Date;
+
+      if (pr.startDate) {
+        cursor = rollToBusinessDay(pr.startDate);
+      } else if (ri > 0 && prevRowEndForChaining) {
+        cursor = new Date(prevRowEndForChaining);
+      } else {
+        // Row 1 with no start date — skip (should be blocked by UI)
+        results.push({ rowId: pr.rowId, cells: [] });
+        continue;
+      }
+
+      let accumulator = 0;
+      const cells: any[] = [];
+
+      for (const col of daterangeCols) {
+        const rawDur = parseFloat(pr.durations[col.id] || '1');
+        const duration = isNaN(rawDur) || rawDur < 0.5 ? 1 : rawDur;
+
+        let startDate: Date;
+        let endDate: Date;
+
+        if (duration < 1) {
+          // Half-day (0.5)
+          const slotDate = accumulator === 0 ? new Date(cursor) : nextBusinessDay(cursor);
+          startDate = slotDate;
+          endDate = slotDate;
+          accumulator += 0.5;
+
+          if (accumulator >= 1.0) {
+            cursor = nextBusinessDay(slotDate);
+            accumulator = 0;
+          } else {
+            cursor = new Date(slotDate);
+          }
+        } else {
+          // Full day or more — absorb leftover accumulator
+          const totalSpan = Math.ceil(accumulator + duration);
+          startDate = new Date(cursor);
+          endDate = totalSpan <= 1 ? new Date(cursor) : addBusinessDays(cursor, totalSpan - 1);
+          accumulator = 0;
+          cursor = nextBusinessDay(endDate);
+        }
+
+        const startISO = toISODate(startDate);
+        const endISO = toISODate(endDate);
+        const current = startISO === endISO ? startISO : `${startISO} \u2013 ${endISO}`;
+
+        cells.push({
+          colId: col.id,
+          dateRange: {
+            current,
+            history: [{ value: current, changedBy: 'Plan', changedAt: new Date().toISOString(), reason: 'Auto-planned' }]
+          }
+        });
+      }
+
+      // End of row: determine chaining date for next row
+      if (accumulator === 0.5) {
+        prevRowEndForChaining = nextBusinessDay(cursor);
+      } else {
+        prevRowEndForChaining = new Date(cursor);
+      }
+
+      results.push({ rowId: pr.rowId, cells });
+    }
+
+    return results;
+  };
+
+  const handleApplyClick = () => {
+    const plan = computePlan();
+    setComputed(plan);
+    setShowConfirm(true);
+  };
+
+  const handleConfirm = () => {
+    if (computed) {
+      emit('apply-plan', computed);
+    }
+  };
+
+  const handleCancel = () => {
+    setShowConfirm(false);
+    setComputed(null);
+  };
+
+  const inputStyle = {
+    padding: '4px 6px',
+    border: '1px solid var(--figma-color-border, #e0e0e0)',
+    borderRadius: '3px',
+    background: 'var(--figma-color-bg, #fff)',
+    color: 'var(--figma-color-text, #000)',
+    fontSize: '11px',
+  };
+
+  return (
+    <div style={{ fontFamily: 'sans-serif', fontSize: '12px' }}>
+      <div style={{ overflowY: 'auto', maxHeight: showConfirm ? 'calc(100vh - 120px)' : 'calc(100vh - 60px)', padding: '12px 16px' }}>
+        {planRows.map((pr, ri) => (
+          <div key={pr.rowId} style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--figma-color-border, #e0e0e0)' }}>
+            <div style={{ marginBottom: '8px' }}>
+              <span style={{ fontWeight: 600, color: 'var(--figma-color-text, #000)' }}>{pr.label}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <label style={{ color: 'var(--figma-color-text-secondary, #666)', minWidth: '70px' }}>
+                Start Date{ri === 0 ? ' *' : ''}
+              </label>
+              <input
+                type="date"
+                value={pr.startDate}
+                onChange={e => updateStartDate(ri, (e.target as HTMLInputElement).value)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              {ri > 0 && !pr.startDate && (
+                <span style={{ fontSize: '10px', color: 'var(--figma-color-text-secondary, #666)', fontStyle: 'italic' }}>chains from prev row</span>
+              )}
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--figma-color-bg-secondary, #f5f5f5)' }}>
+                  <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600, color: 'var(--figma-color-text, #000)', fontSize: '11px', borderBottom: '1px solid var(--figma-color-border, #e0e0e0)' }}>Column</th>
+                  <th style={{ textAlign: 'center', padding: '4px 8px', fontWeight: 600, color: 'var(--figma-color-text, #000)', fontSize: '11px', borderBottom: '1px solid var(--figma-color-border, #e0e0e0)', width: '80px' }}>Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                {daterangeCols.map((col: any) => (
+                  <tr key={col.id}>
+                    <td style={{ padding: '5px 8px', color: 'var(--figma-color-text, #000)', borderBottom: '1px solid var(--figma-color-border, #f0f0f0)', fontSize: '11px' }}>{col.name}</td>
+                    <td style={{ padding: '5px 8px', borderBottom: '1px solid var(--figma-color-border, #f0f0f0)', textAlign: 'center' }}>
+                      <input
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        value={pr.durations[col.id] ?? '1'}
+                        onChange={e => updateDuration(ri, col.id, (e.target as HTMLInputElement).value)}
+                        style={{ ...inputStyle, width: '56px', textAlign: 'center' }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+
+      {/* Confirmation banner */}
+      {showConfirm ? (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: 'var(--figma-color-bg-warning, #fff8e1)', borderTop: '1px solid var(--figma-color-border, #e0e0e0)' }}>
+          <div style={{ fontSize: '11px', color: 'var(--figma-color-text, #000)', marginBottom: '8px' }}>
+            ⚠️ This will overwrite existing date values. Revision history will be preserved.
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button danger fullWidth onClick={handleConfirm}>Apply Plan</Button>
+            <Button secondary fullWidth onClick={handleCancel}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: 'var(--figma-color-bg, #fff)', borderTop: '1px solid var(--figma-color-border, #e0e0e0)' }}>
+          {row1StartMissing && (
+            <div style={{ fontSize: '10px', color: 'var(--figma-color-text-danger, #c62828)', marginBottom: '6px' }}>* Start date is required for the first row</div>
+          )}
+          <Button fullWidth onClick={handleApplyClick} disabled={applyDisabled}>Apply Plan</Button>
+        </div>
+      )}
+    </div>
   );
 }
 

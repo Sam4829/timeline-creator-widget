@@ -33,7 +33,18 @@ export interface RosterMember {
 }
 
 // Iframe Messages
-export type UIMode = 'settings' | 'date-picker' | 'dropdown' | 'add-name';
+export type UIMode = 'settings' | 'date-picker' | 'dropdown' | 'add-name' | 'plan';
+
+// Plan feature result types
+export interface PlanCellResult {
+  colId: string;
+  dateRange: DateRangeData;
+}
+
+export interface PlanRowResult {
+  rowId: string;
+  cells: PlanCellResult[];
+}
 
 export interface DatePickerData {
   rowId: string;

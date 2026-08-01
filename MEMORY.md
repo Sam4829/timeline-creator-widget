@@ -7,12 +7,17 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 
 ## Current State
 - **Repository Restructuring**: Original plugin files moved into `plugin/` directory while keeping `timeline-estimator-widget/` clean and untouched at root.
-- **Implementation Plan Created**: `IMPLEMENTATION_PLAN.md` drafted for the widget's upcoming Plan tab feature & tab reordering (Templates → Roster → Structure → Plan).
+- **Implementation Completed**:
+  - Reordered settings tabs: `Templates` → `Roster` → `Structure`.
+  - Implemented 📅 **Plan Feature** as a standalone flow accessible from the widget title bar.
+  - Business-day date calculation engine with cursor + accumulator logic supporting 0.5+ day durations, row-to-row chaining, weekend roll-forward, inline confirmation before overwriting, and disabled icon states with tooltips when no rows/date-columns exist.
+  - Build verified (`npm run build` passed with zero errors).
 - **Remote Repo**: Linked to `https://github.com/Sam4829/timeline-creator-widget.git` (main branch).
 
 ## Active Context & Next Steps
 - [x] Restructure root directory into `plugin/` and `timeline-estimator-widget/`.
-- [x] Brainstorm and finalize `IMPLEMENTATION_PLAN.md` for widget improvements.
-- [ ] Review implementation plan open questions with user.
-- [ ] Implement tab reordering: Templates → Roster → Structure → Plan.
-- [ ] Implement Plan tab for duration-based date calculation (0.5+ day support, sequential date calculations).
+- [x] Finalize `IMPLEMENTATION_PLAN.md` (v4).
+- [x] Implement settings tab reordering (Templates → Roster → Structure).
+- [x] Implement standalone Plan popup and calculation engine in widget (`types.ts`, `ui.tsx`, `main.tsx`).
+- [x] Verify build and typechecking.
+- [ ] Push latest implementation changes to remote GitHub repo.

@@ -1,3 +1,5 @@
+export * from '../../node_modules/@create-figma-plugin/utilities/lib/index.js';
+
 type EventHandler = (...args: any[]) => void;
 const listeners: Map<string, EventHandler[]> = new Map();
 

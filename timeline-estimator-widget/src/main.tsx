@@ -3,7 +3,7 @@
 /** @jsx figma.widget.h */
 
 import { showUI, on, once, emit } from '@create-figma-plugin/utilities';
-import { ColumnData, RowData, RosterMember, CellValue, DateRangeData, DateHistoryEntry } from './types';
+import { ColumnData, RowData, RosterMember, CellValue } from './types';
 import { ThemeTokens, StatusTokens, FIXED_STATUSES } from './theme';
 
 const { widget } = figma;
@@ -22,11 +22,7 @@ const getSettingsIcon = (color: string) => `<svg width="16" height="16" viewBox=
   <path d="M14.5 8C14.5 8 13.5 8.7 13.5 10C13.5 11.3 14.2 12.2 14.2 12.2L12.2 14.2C12.2 14.2 11.3 13.5 10 13.5C8.7 13.5 8 14.5 8 14.5C8 14.5 7.3 13.5 6 13.5C4.7 13.5 3.8 14.2 3.8 14.2L1.8 12.2C1.8 12.2 2.5 11.3 2.5 10C2.5 8.7 1.5 8 1.5 8C1.5 8 2.5 7.3 2.5 6C2.5 4.7 1.8 3.8 1.8 3.8L3.8 1.8C3.8 1.8 4.7 2.5 6 2.5C7.3 2.5 8 1.5 8 1.5C8 1.5 8.7 2.5 10 2.5C11.3 2.5 12.2 1.8 12.2 1.8L14.2 3.8C14.2 3.8 13.5 4.7 13.5 6C13.5 7.3 14.5 8 14.5 8Z" stroke="${color}" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
-const getInfoIcon = (color: string) => `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="6" cy="6" r="5" stroke="${color}"/>
-  <path d="M6 3.5V3.51" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
-  <path d="M6 5.5V8.5" stroke="${color}" stroke-linecap="round"/>
-</svg>`;
+
 
 const getCalendarIcon = (color: string) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect x="1.5" y="3.5" width="13" height="11" rx="1.5" stroke="${color}"/>
@@ -341,29 +337,7 @@ function TimelineEstimator() {
             const newCells = { ...currentRow.cells };
 
             for (const cellResult of rowResult.cells) {
-              const existing = newCells[cellResult.colId];
-              const incoming = cellResult.dateRange;
-
-              if (!existing || typeof existing !== 'object' || !(existing as any).current) {
-                // Fresh cell — write directly
-                newCells[cellResult.colId] = incoming;
-              } else {
-                // Cell has existing data — push new history entry, update current
-                const prev = existing as any;
-                const newHistory = [
-                  ...prev.history,
-                  {
-                    value: incoming.current,
-                    changedBy: getCurrentUserName(),
-                    changedAt: new Date().toISOString(),
-                    reason: 'Auto-planned'
-                  }
-                ];
-                newCells[cellResult.colId] = {
-                  current: incoming.current,
-                  history: newHistory
-                };
-              }
+              newCells[cellResult.colId] = cellResult.value;
             }
 
             rowsMap.set(rowResult.rowId, { ...currentRow, cells: newCells });
@@ -393,40 +367,13 @@ function TimelineEstimator() {
       const cellValue = row.cells[col.id];
 
       if (col.type === 'daterange') {
-        const data = cellValue as DateRangeData | null;
-
         const cleanup = once('submit-date' as any, (msgData: any) => {
           cleanup();
-          const { rowId: rId, colId: cId, mode, value, reason } = msgData;
+          const { rowId: rId, colId: cId, value } = msgData;
           const currentRow = rowsMap.get(rId);
           if (currentRow) {
-            const currentCell = currentRow.cells[cId] as DateRangeData | null;
-            const newCell: DateRangeData = currentCell
-              ? JSON.parse(JSON.stringify(currentCell))
-              : { current: '', history: [] };
-
-            if (mode === 'revise') {
-              newCell.history.push({
-                value,
-                changedBy: getCurrentUserName(),
-                changedAt: new Date().toISOString(),
-                reason
-              });
-              newCell.current = value;
-            } else if (mode === 'update') {
-              if (newCell.history.length === 0) {
-                newCell.history.push({
-                  value,
-                  changedBy: getCurrentUserName(),
-                  changedAt: new Date().toISOString(),
-                  reason: null
-                });
-              }
-              newCell.current = value;
-            }
-
             const newRows = { ...currentRow, cells: { ...currentRow.cells } };
-            newRows.cells[cId] = newCell;
+            newRows.cells[cId] = value;
             rowsMap.set(rId, newRows);
             updateLastEdited();
           }
@@ -440,8 +387,7 @@ function TimelineEstimator() {
           data: {
             rowId,
             colId: col.id,
-            historyCount: data ? data.history.length : 0,
-            currentValue: data ? data.current : ''
+            currentValue: (cellValue as string) || ''
           }
         });
         figma.ui.postMessage({ type: 'request-focus' });
@@ -510,17 +456,6 @@ function TimelineEstimator() {
     const cellValue = row.cells[col.id];
 
     if (col.type === 'text') {
-      let isRevised = false;
-      for (const key of Object.keys(row.cells)) {
-         const colDef = columnsMap.get(key);
-         if (colDef && colDef.type === 'daterange') {
-           const dData = row.cells[key] as DateRangeData | null;
-           if (dData && dData.history && dData.history.length > 1) {
-             isRevised = true;
-             break;
-           }
-         }
-      }
       return (
         <AutoLayout width="fill-parent" verticalAlignItems="center" spacing={8}>
           <Text fill={theme.subFg} fontSize={14} width={20}>{rowIndex + 1}.</Text>
@@ -536,9 +471,8 @@ function TimelineEstimator() {
               }}
               fill={theme.cellFg}
               fontSize={14}
-              width={isRevised ? 160 : "fill-parent"}
+              width="fill-parent"
             />
-            {isRevised && <Text fill={theme.subFg} fontSize={14} italic>(revised)</Text>}
           </AutoLayout>
         </AutoLayout>
       );
@@ -563,30 +497,14 @@ function TimelineEstimator() {
     }
 
     if (col.type === 'daterange') {
-      const data = cellValue as DateRangeData | null;
-      if (!data || !data.current) {
+      const data = cellValue as string | null;
+      if (!data) {
         return <Text fill={theme.subFg} fontSize={14} italic onClick={() => handleCellClick(row.id, col)}>Set date...</Text>;
       }
 
-      const historyCount = Math.max(0, data.history.length - 1);
-
-      let tooltip = '';
-      if (historyCount > 0) {
-         tooltip = data.history.slice().reverse().map((h, i) => {
-           const label = i === 0 ? '(current)' : '(revised)';
-           return `${formatFriendlyDate(h.value)} ${label}\n\u21B3 set ${new Date(h.changedAt).toLocaleDateString()} by ${h.changedBy}${h.reason ? ` - "${h.reason}"` : ''}`;
-         }).join('\n\n');
-      }
-
       return (
-        <AutoLayout verticalAlignItems="center" spacing={4} onClick={() => handleCellClick(row.id, col)} tooltip={tooltip || undefined} width="fill-parent" horizontalAlignItems="center">
-          <Text fill={theme.cellFg} fontSize={14} width="fill-parent" horizontalAlignText="center">{formatFriendlyDate(data.current)}</Text>
-          {historyCount > 0 && (
-            <AutoLayout verticalAlignItems="center" spacing={2} fill={theme.subBg} cornerRadius={4} padding={{ horizontal: 4, vertical: 2 }}>
-              <SVG src={getInfoIcon(theme.accent)} />
-              <Text fill={theme.accent} fontSize={10}>{historyCount}</Text>
-            </AutoLayout>
-          )}
+        <AutoLayout verticalAlignItems="center" spacing={4} onClick={() => handleCellClick(row.id, col)} width="fill-parent" horizontalAlignItems="center">
+          <Text fill={theme.cellFg} fontSize={14} width="fill-parent" horizontalAlignText="center">{formatFriendlyDate(data)}</Text>
         </AutoLayout>
       );
     }

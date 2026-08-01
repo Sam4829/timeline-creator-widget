@@ -46,13 +46,18 @@ function Plugin(props: any) {
   );
 }
 
-function DatePicker({ rowId, colId, historyCount, currentValue }: DatePickerData) {
-  const isFirstSet = historyCount === 0;
+function buildISODateRange(startDate: string, endDate: string): string {
+  if (startDate && endDate && startDate !== endDate) {
+    return `${startDate} \u2013 ${endDate}`;
+  }
+  if (startDate) return startDate;
+  if (endDate) return endDate;
+  return '';
+}
 
+function DatePicker({ rowId, colId, currentValue }: DatePickerData) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [isRevise, setIsRevise] = useState(!isFirstSet);
-  const [reason, setReason] = useState('');
 
   const parts = currentValue && currentValue.includes('\u2013')
     ? currentValue.split(' \u2013 ')
@@ -65,25 +70,16 @@ function DatePicker({ rowId, colId, historyCount, currentValue }: DatePickerData
   }, []);
 
   const handleSubmit = () => {
-    let value = '';
-    if (startDate && endDate && startDate !== endDate) {
-      value = `${startDate} \u2013 ${endDate}`;
-    } else if (startDate) {
-      value = startDate;
-    } else if (endDate) {
-      value = endDate;
-    }
+    const value = buildISODateRange(startDate, endDate);
 
     emit('submit-date', {
       rowId,
       colId,
-      mode: isFirstSet ? 'update' : (isRevise ? 'revise' : 'update'),
-      value,
-      reason: isRevise && !isFirstSet ? reason : null
+      value
     });
   };
 
-  const submitDisabled = (!startDate && !endDate) || (!isFirstSet && isRevise && !reason.trim());
+  const submitDisabled = !startDate && !endDate;
 
   return (
     <Container space="medium">
@@ -94,44 +90,9 @@ function DatePicker({ rowId, colId, historyCount, currentValue }: DatePickerData
         <input type="date" value={startDate} onChange={e => setStartDate((e.target as HTMLInputElement).value)} style={{ width: '100%', padding: '4px' }} />
         <input type="date" value={endDate} onChange={e => setEndDate((e.target as HTMLInputElement).value)} style={{ width: '100%', padding: '4px' }} />
       </Columns>
-
-      {!isFirstSet && (
-        <div>
-          <VerticalSpace space="large" />
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <div 
-              style={{ flex: 1, padding: '8px', cursor: 'pointer', borderRadius: '4px', border: '1px solid', borderColor: !isRevise ? 'var(--figma-color-border-selected, #18A0FB)' : 'var(--figma-color-border, #e0e0e0)', background: !isRevise ? 'var(--figma-color-bg-selected, rgba(24, 160, 251, 0.1))' : 'transparent' }}
-              onClick={() => setIsRevise(false)}
-            >
-              <div style={{ fontWeight: 'bold', fontSize: '12px', color: !isRevise ? 'var(--figma-color-text-brand, #18A0FB)' : 'var(--figma-color-text, #333)' }}>Update</div>
-              <div style={{ fontSize: '10px', color: 'var(--figma-color-text-secondary, #666)', marginTop: '4px' }}>Just fixing a mistake — no history kept</div>
-            </div>
-            <div 
-              style={{ flex: 1, padding: '8px', cursor: 'pointer', borderRadius: '4px', border: '1px solid', borderColor: isRevise ? 'var(--figma-color-border-selected, #18A0FB)' : 'var(--figma-color-border, #e0e0e0)', background: isRevise ? 'var(--figma-color-bg-selected, rgba(24, 160, 251, 0.1))' : 'transparent' }}
-              onClick={() => setIsRevise(true)}
-            >
-              <div style={{ fontWeight: 'bold', fontSize: '12px', color: isRevise ? 'var(--figma-color-text-brand, #18A0FB)' : 'var(--figma-color-text, #333)' }}>Revise</div>
-              <div style={{ fontSize: '10px', color: 'var(--figma-color-text-secondary, #666)', marginTop: '4px' }}>Schedule actually changed — keeps a record</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isRevise && !isFirstSet && (
-        <div>
-          <VerticalSpace space="small" />
-          <TextboxMultiline
-            value={reason}
-            onValueInput={setReason}
-            placeholder="Reason for schedule change..."
-            rows={3}
-          />
-        </div>
-      )}
-
       <VerticalSpace space="large" />
       <Button fullWidth onClick={handleSubmit} disabled={submitDisabled}>
-        {isFirstSet ? 'Set Date' : (isRevise ? 'Submit Revision' : 'Update Date')}
+        Set Date
       </Button>
     </Container>
   );
@@ -592,14 +553,11 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
 
         const startISO = toISODate(startDate);
         const endISO = toISODate(endDate);
-        const current = startISO === endISO ? startISO : `${startISO} \u2013 ${endISO}`;
+        const value = buildISODateRange(startISO, endISO);
 
         cells.push({
           colId: col.id,
-          dateRange: {
-            current,
-            history: [{ value: current, changedBy: 'Plan', changedAt: new Date().toISOString(), reason: 'Auto-planned' }]
-          }
+          value
         });
       }
 
@@ -697,7 +655,7 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
       {showConfirm ? (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: 'var(--figma-color-bg-warning, #fff8e1)', borderTop: '1px solid var(--figma-color-border, #e0e0e0)' }}>
           <div style={{ fontSize: '11px', color: 'var(--figma-color-text, #000)', marginBottom: '8px' }}>
-            ⚠️ This will overwrite existing date values. Revision history will be preserved.
+            ⚠️ This will overwrite existing date values.
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <Button danger fullWidth onClick={handleConfirm}>Apply Plan</Button>

@@ -7,19 +7,7 @@ export interface ColumnData {
   locked?: boolean;
 }
 
-export interface DateHistoryEntry {
-  value: string;
-  changedBy: string;
-  changedAt: string;
-  reason: string | null;
-}
-
-export interface DateRangeData {
-  current: string;
-  history: DateHistoryEntry[];
-}
-
-export type CellValue = string | string[] | DateRangeData | null;
+export type CellValue = string | string[] | null;
 
 export interface RowData {
   order: number;
@@ -38,7 +26,7 @@ export type UIMode = 'settings' | 'date-picker' | 'dropdown' | 'add-name' | 'pla
 // Plan feature result types
 export interface PlanCellResult {
   colId: string;
-  dateRange: DateRangeData;
+  value: string;
 }
 
 export interface PlanRowResult {
@@ -49,7 +37,6 @@ export interface PlanRowResult {
 export interface DatePickerData {
   rowId: string;
   colId: string;
-  historyCount: number;
   currentValue: string;
 }
 

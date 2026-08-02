@@ -3,10 +3,10 @@
 ## Overview
 This repository contains the **Timeline Estimator**, a dual-component project for Figma:
 1. **Figma Plugin** (`plugin/`): A tool for statically generating Auto Layout tables in standard Figma design files.
-2. **FigJam Widget** (`timeline-estimator-widget/`): An interactive timeline widget designed for real-time collaboration on the FigJam canvas.
+2. **FigJam Widget** (`widget/`): An interactive timeline widget designed for real-time collaboration on the FigJam canvas.
 
 ## Current State
-- **Repository Restructuring**: Original plugin files moved into `plugin/` directory while keeping `timeline-estimator-widget/` clean and untouched at root.
+- **Repository Restructuring**: Original plugin files moved into `plugin/` directory while keeping `widget/` clean and untouched at root.
 - **Implementation Completed**:
   - Reordered settings tabs: `Templates` → `Roster` → `Structure`.
   - Implemented 📅 **Plan Feature** as a standalone flow accessible from the widget title bar.
@@ -17,7 +17,7 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 - **Remote Repo**: Linked to `https://github.com/Sam4829/timeline-creator-widget.git` (main branch).
 
 ## Active Context & Next Steps
-- [x] Restructure root directory into `plugin/` and `timeline-estimator-widget/`.
+- [x] Restructure root directory into `plugin/` and `widget/`.
 - [x] Finalize `IMPLEMENTATION_PLAN.md` (v5).
 - [x] Implement settings tab reordering (Templates → Roster → Structure).
 - [x] Implement standalone Plan popup and calculation engine in widget (`types.ts`, `ui.tsx`, `main.tsx`).

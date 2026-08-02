@@ -4,13 +4,13 @@ A suite of tools for Figma and FigJam designed to build, manage, and collaborate
 
 This repository contains two distinct complementary implementations:
 1. **Figma Plugin (`plugin/`)** — Form-driven generator that creates native, styled Auto Layout tables in Figma Design files.
-2. **FigJam & Figma Widget (`timeline-estimator-widget/`)** — Interactive canvas widget with live inline editing, date range history audit trails, status badges, and team assignee rosters.
+2. **FigJam & Figma Widget (`widget/`)** — Interactive canvas widget with live inline editing, date range history audit trails, status badges, and team assignee rosters.
 
 ---
 
 ## 🚀 Key Features Comparison
 
-| Feature | Figma Plugin (`plugin/`) | Canvas Widget (`timeline-estimator-widget/`) |
+| Feature | Figma Plugin (`plugin/`) | Canvas Widget (`widget/`) |
 | :--- | :---: | :---: |
 | **Primary Environment** | Figma Design Files | Figma & FigJam Canvas |
 | **Editing Style** | Form modal (Setup, Columns, Rows, Preview) | Direct on-canvas inline interaction & UI popovers |
@@ -35,7 +35,7 @@ timeline-estimator-plugin/
 │   ├── DEVELOPER_GUIDE.md        # Technical guide for plugin developers
 │   └── README.md                 # Plugin specific guide
 │
-├── timeline-estimator-widget/    # FigJam / Figma Widget package
+├── widget/                       # FigJam / Figma Widget package
 │   ├── src/
 │   │   ├── main.tsx              # Widget canvas component rendering & logic
 │   │   ├── ui.tsx                # Date picker, dropdown, and settings iframe UI
@@ -70,7 +70,7 @@ cd plugin
 npm install
 
 # For Figma / FigJam Widget development:
-cd ../timeline-estimator-widget
+cd ../widget
 npm install
 ```
 
@@ -106,13 +106,13 @@ npm run watch
 
 ---
 
-## 🧩 Package 2: Timeline Estimator Widget (`timeline-estimator-widget/`)
+## 🧩 Package 2: Timeline Estimator Widget (`widget/`)
 
 An interactive widget that resides directly on your canvas. It supports live state syncing, custom status options, team roster assignment, and audit history for modified dates.
 
 ### Build & Run
 ```bash
-cd timeline-estimator-widget
+cd widget
 
 # Build widget output
 npm run build
@@ -125,7 +125,7 @@ npm run watch
 1. Open **Figma Desktop App** and open a FigJam or Figma file.
 2. Open Quick Actions search bar (`Cmd + /` or `Ctrl + /`).
 3. Search for **Import widget from manifest...**
-4. Select `timeline-estimator-widget/manifest.json`.
+4. Select `widget/manifest.json`.
 5. Insert the widget onto your canvas.
 
 ### Core Widget Features
@@ -148,7 +148,7 @@ npm run watch
 
 Both packages can be published to the Figma Community store:
 
-1. Run `npm run build` in the target package (`plugin/` or `timeline-estimator-widget/`).
+1. Run `npm run build` in the target package (`plugin/` or `widget/`).
 2. Open Figma Desktop App → **Community** tab → **Publish plugins / widgets**.
 3. Fill out store listing details (title, description, cover image `1920x960px`).
 4. Submit for Figma review.

@@ -1,6 +1,7 @@
 node_modules/
 build/
 *.js.map
+*.css.d.ts
 manifest.json
 
 # Environment variables & secrets

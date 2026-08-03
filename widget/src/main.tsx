@@ -17,11 +17,14 @@ const {
   SVG
 } = widget;
 
-const getSettingsIcon = (color: string) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M8 11.5C9.933 11.5 11.5 9.933 11.5 8C11.5 6.067 9.933 4.5 8 4.5C6.067 4.5 4.5 6.067 4.5 8C4.5 9.933 6.067 11.5 8 11.5Z" stroke="${color}" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M14.5 8C14.5 8 13.5 8.7 13.5 10C13.5 11.3 14.2 12.2 14.2 12.2L12.2 14.2C12.2 14.2 11.3 13.5 10 13.5C8.7 13.5 8 14.5 8 14.5C8 14.5 7.3 13.5 6 13.5C4.7 13.5 3.8 14.2 3.8 14.2L1.8 12.2C1.8 12.2 2.5 11.3 2.5 10C2.5 8.7 1.5 8 1.5 8C1.5 8 2.5 7.3 2.5 6C2.5 4.7 1.8 3.8 1.8 3.8L3.8 1.8C3.8 1.8 4.7 2.5 6 2.5C7.3 2.5 8 1.5 8 1.5C8 1.5 8.7 2.5 10 2.5C11.3 2.5 12.2 1.8 12.2 1.8L14.2 3.8C14.2 3.8 13.5 4.7 13.5 6C13.5 7.3 14.5 8 14.5 8Z" stroke="${color}" stroke-linecap="round" stroke-linejoin="round"/>
+const getSettingsIcon = (color: string) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="3"></circle>
+  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
 </svg>`;
 
+const getPlusIcon = (color: string) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M8 3V13M3 8H13" stroke="${color}" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
 
 
 const getCalendarIcon = (color: string) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -38,7 +41,7 @@ const formatFriendlyDate = (isoString: string) => {
   if (!isoString) return '';
   const parts = isoString.split('\u2013').map(p => p.trim()).filter(Boolean);
   
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   
   const formattedParts = parts.map(p => {
     const dateParts = p.split('-');
@@ -55,7 +58,7 @@ const formatFriendlyDate = (isoString: string) => {
     return formattedParts[0];
   }
 
-  return formattedParts.join(' \u2013 ');
+  return formattedParts.join(' - ');
 };
 
 export default function () {
@@ -325,7 +328,7 @@ function TimelineEstimator() {
         cells: r.cells
       }));
 
-      showUI({ width: 450, height: 520, title: 'Plan Timeline' }, { type: 'plan', rows: rowsData, columns: colsData });
+      showUI({ width: 466, height: 540, title: 'Plan Timeline' }, { type: 'plan', rows: rowsData, columns: colsData });
       figma.ui.postMessage({ type: 'request-focus' });
 
       setTimeout(() => {
@@ -448,6 +451,11 @@ function TimelineEstimator() {
     });
   };
 
+  const getColWidth = (col: ColumnData) => {
+    if (col.type === 'text') return 240;
+    return Math.max(120, Math.ceil(col.name.length * 7.5));
+  };
+
   const getStatusToken = (status: string) => {
     return (StatusTokens as any)[status] || { bg: theme.subBg, fg: theme.cellFg };
   };
@@ -458,7 +466,7 @@ function TimelineEstimator() {
     if (col.type === 'text') {
       return (
         <AutoLayout width="fill-parent" verticalAlignItems="center" spacing={8}>
-          <Text fill={theme.subFg} fontSize={14} width={20}>{rowIndex + 1}.</Text>
+          <Text fill={theme.subFg} fontSize={11} width={20}>{rowIndex + 1}.</Text>
           <AutoLayout width="fill-parent" verticalAlignItems="center" spacing={4}>
             <Input
               value={(cellValue as string) || ''}
@@ -470,7 +478,8 @@ function TimelineEstimator() {
                 updateLastEdited();
               }}
               fill={theme.cellFg}
-              fontSize={14}
+              fontSize={11}
+              fontWeight="bold"
               width="fill-parent"
             />
           </AutoLayout>
@@ -481,17 +490,17 @@ function TimelineEstimator() {
     if (col.type === 'status') {
       const val = cellValue as string;
       if (!val) {
-        return <Text fill={theme.subFg} fontSize={14} italic onClick={() => handleCellClick(row.id, col)}>Select...</Text>;
+        return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col)}>Select...</Text>;
       }
       const token = getStatusToken(val);
       return (
         <AutoLayout
           fill={token.bg}
-          padding={{ horizontal: 8, vertical: 4 }}
-          cornerRadius={999}
+          padding={{ horizontal: 10, vertical: 4 }}
+          cornerRadius={12}
           onClick={() => handleCellClick(row.id, col)}
         >
-          <Text fill={token.fg} fontSize={12} fontWeight="bold">{val}</Text>
+          <Text fill={token.fg} fontSize={11} fontWeight="bold">{val}</Text>
         </AutoLayout>
       );
     }
@@ -499,30 +508,41 @@ function TimelineEstimator() {
     if (col.type === 'daterange') {
       const data = cellValue as string | null;
       if (!data) {
-        return <Text fill={theme.subFg} fontSize={14} italic onClick={() => handleCellClick(row.id, col)}>Set date...</Text>;
+        return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col)}>Set date...</Text>;
       }
 
       return (
-        <AutoLayout verticalAlignItems="center" spacing={4} onClick={() => handleCellClick(row.id, col)} width="fill-parent" horizontalAlignItems="center">
-          <Text fill={theme.cellFg} fontSize={14} width="fill-parent" horizontalAlignText="center">{formatFriendlyDate(data)}</Text>
+        <AutoLayout verticalAlignItems="center" spacing={4} onClick={() => handleCellClick(row.id, col)} width="fill-parent" horizontalAlignItems="start">
+          <Text fill={theme.cellFg} fontSize={11} width="fill-parent" horizontalAlignText="left">{formatFriendlyDate(data)}</Text>
         </AutoLayout>
       );
     }
 
     // Assignee
-    let valStr = '';
+    const avatarColors = ['#8A38F5', '#198F51', '#0A6DC2', '#D05141'];
+    const getAvatarColor = (name: string) => avatarColors[name.length % avatarColors.length];
+
+    let assignees: string[] = [];
     if (Array.isArray(cellValue)) {
-      valStr = cellValue.join(', ');
-    } else if (typeof cellValue === 'string') {
-      valStr = cellValue;
+      assignees = cellValue;
+    } else if (typeof cellValue === 'string' && cellValue) {
+      assignees = [cellValue];
     }
+    const valStr = assignees.join(', ');
 
     if (!valStr) {
-      return <Text fill={theme.subFg} fontSize={14} italic onClick={() => handleCellClick(row.id, col)}>Select...</Text>;
+      return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col)}>Select...</Text>;
     }
     return (
-      <AutoLayout onClick={() => handleCellClick(row.id, col)} horizontalAlignItems="center" width="fill-parent">
-        <Text fill={theme.cellFg} fontSize={14} width="fill-parent" horizontalAlignText="center">{valStr} &#x25BE;</Text>
+      <AutoLayout onClick={() => handleCellClick(row.id, col)} verticalAlignItems="center" spacing={8} width="fill-parent">
+        <AutoLayout spacing={-4}>
+          {assignees.map((name: string, i: number) => (
+            <AutoLayout key={i} width={16} height={16} cornerRadius={999} fill={getAvatarColor(name)} horizontalAlignItems="center" verticalAlignItems="center" stroke={theme.bg} strokeWidth={1}>
+              <Text fill="#FFFFFF" fontSize={9} fontWeight="bold">{name.charAt(0).toUpperCase()}</Text>
+            </AutoLayout>
+          ))}
+        </AutoLayout>
+        <Text fill={theme.cellFg} fontSize={11} width="fill-parent" horizontalAlignText="left">{valStr} &#x25BE;</Text>
       </AutoLayout>
     );
   };
@@ -531,82 +551,90 @@ function TimelineEstimator() {
     <AutoLayout
       direction="vertical"
       fill={theme.bg}
-      cornerRadius={8}
+      cornerRadius={12}
       stroke={theme.border}
       strokeWidth={1}
     >
       {/* Title Bar */}
       <AutoLayout
         width="fill-parent"
-        height={64}
         fill={theme.headerBg}
-        padding={{ horizontal: 24 }}
+        padding={{ horizontal: 24, vertical: 16 }}
         verticalAlignItems="center"
         spacing="auto"
       >
         <Input
-          value={projectName.toUpperCase()}
+          value={projectName}
           onTextEditEnd={(e) => {
             setProjectName(e.characters);
             updateLastEdited();
           }}
-          fontSize={16}
+          fontSize={24}
           fontWeight="bold"
           fill={theme.headerFg}
           width={300}
         />
-        <AutoLayout verticalAlignItems="center" spacing={12}>
-          <Text fill={theme.subFg} fontSize={12}>Last edited: {lastEditedBy}</Text>
-          {(() => {
-            const hasRows = rows.length > 0;
-            const hasDaterangeCols = columns.some(c => c.type === 'daterange');
-            const planEnabled = hasRows && hasDaterangeCols;
-            const planTooltip = !hasRows
-              ? 'Add rows to start planning'
-              : !hasDaterangeCols
-              ? 'Add a date column to your template first'
-              : undefined;
-            return (
-              <AutoLayout
-                padding={8}
-                hoverStyle={planEnabled ? { fill: theme.subBg } : undefined}
-                cornerRadius={4}
-                opacity={planEnabled ? 1 : 0.35}
-                onClick={planEnabled ? handleOpenPlan : undefined}
-                tooltip={planTooltip}
-              >
-                <SVG src={getCalendarIcon(theme.subFg)} />
-              </AutoLayout>
-            );
-          })()}
-          <AutoLayout
-            padding={8}
-            hoverStyle={{ fill: theme.subBg }}
-            cornerRadius={4}
-            onClick={handleOpenSettings}
-          >
-            <SVG src={getSettingsIcon(theme.subFg)} />
+        <AutoLayout verticalAlignItems="center" spacing={40}>
+          <Text fill={theme.subFg} fontSize={11}>Last edited: {lastEditedBy}</Text>
+          <AutoLayout verticalAlignItems="center" spacing={12}>
+            {(() => {
+              const hasRows = rows.length > 0;
+              const hasDaterangeCols = columns.some(c => c.type === 'daterange');
+              const planEnabled = hasRows && hasDaterangeCols;
+              const planTooltip = !hasRows
+                ? 'Add rows to start planning'
+                : !hasDaterangeCols
+                ? 'Add a date column to your template first'
+                : undefined;
+              return (
+                <AutoLayout
+                  padding={{ horizontal: 8, vertical: 4 }}
+                  hoverStyle={planEnabled ? { fill: theme.subBg } : undefined}
+                  cornerRadius={5}
+                  stroke="#FFFFFF1A"
+                  strokeWidth={1}
+                  verticalAlignItems="center"
+                  spacing={8}
+                  opacity={planEnabled ? 1 : 0.35}
+                  onClick={planEnabled ? handleOpenPlan : undefined}
+                  tooltip={planTooltip}
+                >
+                  <SVG src={getCalendarIcon(theme.cellFg)} />
+                  <Text fill={theme.cellFg} fontSize={11}>Make plan</Text>
+                </AutoLayout>
+              );
+            })()}
+            <AutoLayout
+              padding={{ horizontal: 8, vertical: 4 }}
+              hoverStyle={{ fill: theme.subBg }}
+              cornerRadius={5}
+              stroke="#FFFFFF1A"
+              strokeWidth={1}
+              verticalAlignItems="center"
+              spacing={8}
+              onClick={handleOpenSettings}
+            >
+              <SVG src={getSettingsIcon(theme.cellFg)} />
+              <Text fill={theme.cellFg} fontSize={11}>Settings</Text>
+            </AutoLayout>
           </AutoLayout>
         </AutoLayout>
       </AutoLayout>
 
       {/* Columns Header */}
       <AutoLayout width="fill-parent" height={1} fill={theme.border} />
-      <AutoLayout width="fill-parent" fill={theme.bg} verticalAlignItems="center">
-        {columns.flatMap((col, i) => {
-          const cell = (
-            <AutoLayout key={col.id} width={col.type === 'text' ? 260 : (col.type === 'daterange' ? 180 : 150)} padding={{ horizontal: 24, vertical: 20 }} horizontalAlignItems={col.type === 'text' ? 'start' : 'center'} overflow="hidden">
-              <Text fill={theme.headerFg} fontSize={14} fontWeight="bold">{col.name}</Text>
-            </AutoLayout>
-          );
-          if (i > 0) {
-            return [
-              <AutoLayout key={`div-col-${col.id}`} width={1} height="fill-parent" fill={theme.border} />,
-              cell
-            ];
-          }
-          return [cell];
-        })}
+      <AutoLayout
+        width="fill-parent"
+        fill={theme.bg}
+        verticalAlignItems="center"
+        padding={{ horizontal: 24, vertical: 12 }}
+        spacing={48}
+      >
+        {columns.map((col) => (
+          <AutoLayout key={col.id} width={getColWidth(col)}>
+            <Text fill={theme.headerFg} fontSize={11} fontWeight="bold" opacity={0.9}>{col.name}</Text>
+          </AutoLayout>
+        ))}
       </AutoLayout>
 
       {/* Rows */}
@@ -619,38 +647,36 @@ function TimelineEstimator() {
           <AutoLayout width="fill-parent" height={1} fill={theme.border} />
           <AutoLayout
             width="fill-parent"
-            fill={theme.rowBg}
+            fill={theme.bg}
             verticalAlignItems="center"
+            padding={{ horizontal: 24, vertical: 16 }}
+            spacing={48}
           >
-            {columns.flatMap((col, i) => {
-              const cell = (
-                <AutoLayout key={col.id} width={col.type === 'text' ? 260 : (col.type === 'daterange' ? 180 : 150)} padding={{ horizontal: 24, vertical: 20 }} horizontalAlignItems={col.type === 'text' ? 'start' : 'center'} overflow="hidden">
-                   {renderCell(row, col, index)}
-                </AutoLayout>
-              );
-              if (i > 0) {
-                return [
-                  <AutoLayout key={`div-row-${row.id}-${col.id}`} width={1} height="fill-parent" fill={theme.border} />,
-                  cell
-                ];
-              }
-              return [cell];
-            })}
+            {columns.map((col) => (
+              <AutoLayout key={col.id} width={getColWidth(col)}>
+                {renderCell(row, col, index)}
+              </AutoLayout>
+            ))}
           </AutoLayout>
         </AutoLayout>
       ))}
 
       {/* Footer Add Row */}
       <AutoLayout width="fill-parent" height={1} fill={theme.border} />
-      <AutoLayout
-        width="fill-parent"
-        height={52}
-        padding={{ horizontal: 24 }}
-        verticalAlignItems="center"
-        onClick={handleAddRow}
-        hoverStyle={{ fill: theme.rowAltBg }}
-      >
-        <Text fill={theme.accent} fontSize={14} fontWeight="bold">+ Add row</Text>
+      <AutoLayout width="fill-parent" padding={12} horizontalAlignItems="start">
+        <AutoLayout
+          padding={{ horizontal: 12, vertical: 6 }}
+          stroke="#FFFFFF1A"
+          strokeWidth={1}
+          cornerRadius={5}
+          verticalAlignItems="center"
+          spacing={4}
+          onClick={handleAddRow}
+          hoverStyle={{ fill: theme.subBg }}
+        >
+          <SVG src={getPlusIcon(theme.cellFg)} />
+          <Text fill={theme.cellFg} fontSize={11}>Add row</Text>
+        </AutoLayout>
       </AutoLayout>
     </AutoLayout>
   );

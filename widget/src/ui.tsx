@@ -173,15 +173,15 @@ function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (
 
   return (
     <Container space="medium">
-      <div style={{ display: 'flex', gap: '16px', padding: '16px 0', borderBottom: '1px solid var(--figma-color-border, #e0e0e0)' }}>
-        <div onClick={() => setTab('templates')} style={{ cursor: 'pointer' }}>
-          <Text style={{ fontWeight: tab === 'templates' ? 'bold' : 'normal', color: tab === 'templates' ? 'var(--figma-color-text, #000)' : 'var(--figma-color-text-secondary, #666)' }}>Templates</Text>
+      <div className="custom-tab-bar">
+        <div className={`custom-tab ${tab === 'templates' ? 'active' : ''}`} onClick={() => setTab('templates')}>
+          Templates
         </div>
-        <div onClick={() => setTab('roster')} style={{ cursor: 'pointer' }}>
-          <Text style={{ fontWeight: tab === 'roster' ? 'bold' : 'normal', color: tab === 'roster' ? 'var(--figma-color-text, #000)' : 'var(--figma-color-text-secondary, #666)' }}>Roster</Text>
+        <div className={`custom-tab ${tab === 'roster' ? 'active' : ''}`} onClick={() => setTab('roster')}>
+          Roster
         </div>
-        <div onClick={() => setTab('structure')} style={{ cursor: 'pointer' }}>
-          <Text style={{ fontWeight: tab === 'structure' ? 'bold' : 'normal', color: tab === 'structure' ? 'var(--figma-color-text, #000)' : 'var(--figma-color-text-secondary, #666)' }}>Structure</Text>
+        <div className={`custom-tab ${tab === 'structure' ? 'active' : ''}`} onClick={() => setTab('structure')}>
+          Structure
         </div>
       </div>
       <VerticalSpace space="medium" />
@@ -195,7 +195,14 @@ function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (
       {tab === 'roster' && (
         <div>
           {localRoster.length === 0 && (
-            <Text style={{ color: 'var(--figma-color-text-secondary, #666)', marginBottom: '16px', display: 'block' }}>No members in roster yet.</Text>
+            <div className="roster-empty">
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: '12px' }}>
+                <circle cx="20" cy="20" r="19" stroke="var(--figma-color-border)" strokeWidth="2"/>
+                <path d="M20 23C22.2091 23 24 21.2091 24 19C24 16.7909 22.2091 15 20 15C17.7909 15 16 16.7909 16 19C16 21.2091 17.7909 23 20 23Z" stroke="var(--figma-color-text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M26 29C26 26.7909 23.3137 25 20 25C16.6863 25 14 26.7909 14 29" stroke="var(--figma-color-text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              No members in roster yet.
+            </div>
           )}
           {localRoster.map(r => (
             <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', alignItems: 'center' }}>
@@ -216,11 +223,12 @@ function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (
               style={{
                 flex: 1,
                 padding: '6px 8px',
-                border: '1px solid var(--figma-color-border, #e0e0e0)',
+                border: '1px solid var(--figma-color-border)',
                 borderRadius: '4px',
-                background: 'var(--figma-color-bg, #fff)',
-                color: 'var(--figma-color-text, #000)',
-                fontSize: '11px'
+                background: 'var(--figma-color-bg-secondary)',
+                color: 'var(--figma-color-text)',
+                fontSize: '11px',
+                outline: 'none'
               }}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAddName(); }}
             />
@@ -289,7 +297,7 @@ function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (
                     type="text" 
                     value={c.name} 
                     onChange={e => emit('update-column', { id: c.id, updates: { name: (e.target as HTMLInputElement).value } })}
-                    style={{ width: '100%', padding: '4px', border: '1px solid var(--figma-color-border, #e0e0e0)', borderRadius: '2px', background: 'var(--figma-color-bg, #fff)', color: 'var(--figma-color-text, #000)' }}
+                    style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--figma-color-border)', borderRadius: '4px', background: 'var(--figma-color-bg-secondary)', color: 'var(--figma-color-text)', outline: 'none' }}
                   />
                 </div>
                 <div style={{ width: '100px' }}>
@@ -591,70 +599,73 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
     setComputed(null);
   };
 
-  const inputStyle = {
-    padding: '4px 6px',
-    border: '1px solid var(--figma-color-border, #e0e0e0)',
-    borderRadius: '3px',
-    background: 'var(--figma-color-bg, #fff)',
-    color: 'var(--figma-color-text, #000)',
-    fontSize: '11px',
-  };
 
   return (
-    <div style={{ fontFamily: 'sans-serif', fontSize: '12px' }}>
-      <div style={{ overflowY: 'auto', maxHeight: showConfirm ? 'calc(100vh - 120px)' : 'calc(100vh - 60px)', padding: '12px 16px' }}>
+    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255, 255, 255, 0.9)' }}>
+      <div style={{ overflowY: 'auto', maxHeight: showConfirm ? 'calc(100vh - 120px)' : 'calc(100vh - 70px)', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {planRows.map((pr, ri) => (
-          <div key={pr.rowId} style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--figma-color-border, #e0e0e0)' }}>
-            <div style={{ marginBottom: '8px' }}>
-              <span style={{ fontWeight: 600, color: 'var(--figma-color-text, #000)' }}>{pr.label}</span>
+          <div key={pr.rowId} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {ri > 0 && <div style={{ height: '1px', background: 'var(--figma-color-border, #383838)', marginBottom: '4px' }} />}
+            <div>
+              <span style={{ fontWeight: 600, fontSize: '12px', color: '#FFFFFF' }}>{pr.label}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-              <label style={{ color: 'var(--figma-color-text-secondary, #666)', minWidth: '70px' }}>
-                Start Date{ri === 0 ? ' *' : ''}
-              </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500 }}>
+                  Start Date{ri === 0 ? <span style={{ color: '#F26C55' }}> *</span> : ''}
+                </span>
+                {ri > 0 && !pr.startDate && (
+                  <span style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)', fontStyle: 'italic' }}>(Chains from prev row, if left blank)</span>
+                )}
+              </div>
               <input
                 type="date"
                 value={pr.startDate}
                 onChange={e => updateStartDate(ri, (e.target as HTMLInputElement).value)}
-                style={{ ...inputStyle, flex: 1 }}
+                className="plan-input"
+                style={{ width: '140px', padding: '6px 8px', borderRadius: '5px', border: '1px solid var(--figma-color-border, #383838)', background: '#2C2C2C', color: '#FFFFFF', outline: 'none' }}
               />
-              {ri > 0 && !pr.startDate && (
-                <span style={{ fontSize: '10px', color: 'var(--figma-color-text-secondary, #666)', fontStyle: 'italic' }}>chains from prev row</span>
-              )}
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'var(--figma-color-bg-secondary, #f5f5f5)' }}>
-                  <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600, color: 'var(--figma-color-text, #000)', fontSize: '11px', borderBottom: '1px solid var(--figma-color-border, #e0e0e0)' }}>Column</th>
-                  <th style={{ textAlign: 'center', padding: '4px 8px', fontWeight: 600, color: 'var(--figma-color-text, #000)', fontSize: '11px', borderBottom: '1px solid var(--figma-color-border, #e0e0e0)', width: '80px' }}>Days</th>
-                </tr>
-              </thead>
-              <tbody>
-                {daterangeCols.map((col: any) => (
-                  <tr key={col.id}>
-                    <td style={{ padding: '5px 8px', color: 'var(--figma-color-text, #000)', borderBottom: '1px solid var(--figma-color-border, #f0f0f0)', fontSize: '11px' }}>{col.name}</td>
-                    <td style={{ padding: '5px 8px', borderBottom: '1px solid var(--figma-color-border, #f0f0f0)', textAlign: 'center' }}>
-                      <input
-                        type="number"
-                        min="0.5"
-                        step="0.5"
-                        value={pr.durations[col.id] ?? '1'}
-                        onChange={e => updateDuration(ri, col.id, (e.target as HTMLInputElement).value)}
-                        style={{ ...inputStyle, width: '56px', textAlign: 'center' }}
-                      />
-                    </td>
+            <div className="plan-table-card">
+              <table className="plan-table">
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left' }}>Column</th>
+                    <th style={{ textAlign: 'right', width: '80px' }}>Days</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {daterangeCols.map((col: any) => (
+                    <tr key={col.id}>
+                      <td>{col.name}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="plan-number-box">
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4.5 2V10M7.5 2V10M2.5 4.5H9.5M2.5 7.5H9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                          </svg>
+                          <input
+                            type="number"
+                            min="0.5"
+                            step="0.5"
+                            value={pr.durations[col.id] ?? '1'}
+                            onChange={e => updateDuration(ri, col.id, (e.target as HTMLInputElement).value)}
+                            className="plan-number-input"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ))}
       </div>
 
       {/* Confirmation banner */}
       {showConfirm ? (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: 'var(--figma-color-bg-warning, #fff8e1)', borderTop: '1px solid var(--figma-color-border, #e0e0e0)' }}>
-          <div style={{ fontSize: '11px', color: 'var(--figma-color-text, #000)', marginBottom: '8px' }}>
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: '#2C2C2C', borderTop: '1px solid #383838', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ fontSize: '11px', color: '#FFCD29' }}>
             ⚠️ This will overwrite existing date values.
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -663,11 +674,27 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
           </div>
         </div>
       ) : (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: 'var(--figma-color-bg, #fff)', borderTop: '1px solid var(--figma-color-border, #e0e0e0)' }}>
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: '#1E1E1E', borderTop: '1px solid #383838', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {row1StartMissing && (
-            <div style={{ fontSize: '10px', color: 'var(--figma-color-text-danger, #c62828)', marginBottom: '6px' }}>* Start date is required for the first row</div>
+            <div style={{ fontSize: '11px', color: '#F26C55' }}>* Start date is required for the first row</div>
           )}
-          <Button fullWidth onClick={handleApplyClick} disabled={applyDisabled}>Apply Plan</Button>
+          <button
+            onClick={handleApplyClick}
+            disabled={applyDisabled}
+            style={{
+              width: '100%',
+              height: '32px',
+              borderRadius: '5px',
+              border: 'none',
+              background: applyDisabled ? '#383838' : '#0D99FF',
+              color: applyDisabled ? 'rgba(255, 255, 255, 0.4)' : '#FFFFFF',
+              fontWeight: 600,
+              fontSize: '11px',
+              cursor: applyDisabled ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Apply Plan
+          </button>
         </div>
       )}
     </div>

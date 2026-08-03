@@ -1,15 +1,15 @@
 export const ThemeTokens = {
   dark: {
-    bg: '#222222',
-    headerBg: '#222222',
-    headerFg: '#ffffff',
-    subBg: '#2d2d2d',
-    subFg: '#888888',
-    rowBg: '#222222',
-    rowAltBg: '#222222',
-    cellFg: '#e0e0e0',
-    border: '#333333',
-    accent: '#ff6b6b'
+    bg: '#1E1E1E',
+    headerBg: '#1E1E1E',
+    headerFg: '#FFFFFF',
+    subBg: '#2C2C2C',
+    subFg: '#FFFFFF80',
+    rowBg: '#1E1E1E',
+    rowAltBg: '#2C2C2C',
+    cellFg: '#FFFFFFCC',
+    border: '#383838',
+    accent: '#FFFFFF'
   },
   light: {
     bg: '#ffffff',
@@ -21,16 +21,16 @@ export const ThemeTokens = {
     rowAltBg: '#f5f5f5',
     cellFg: '#333333',
     border: '#cccccc',
-    accent: '#d32f2f'
+    accent: '#000000'
   }
 };
 
 export const StatusTokens = {
-  'WIP': { bg: '#1e3a1e', fg: '#6fcf6f' },
-  'Done': { bg: '#1a2d1a', fg: '#4caf50' },
-  'Yet to start': { bg: '#1e1e3a', fg: '#8888cc' },
-  'Blocked': { bg: '#3a1a1a', fg: '#e57373' },
-  'In review': { bg: '#3a2a10', fg: '#ffb74d' }
+  'WIP': { bg: '#473956', fg: '#D1A8FF' },
+  'Done': { bg: '#2C2C2C', fg: '#10B981' },
+  'Yet to start': { bg: '#2C2C2C', fg: '#F7D15F' },
+  'Blocked': { bg: '#4d2626', fg: '#ff8a8a' },
+  'In review': { bg: '#223355', fg: '#8ab4f8' }
 };
 
 export const FIXED_STATUSES = ['WIP', 'Done', 'Yet to start', 'Blocked', 'In review'];

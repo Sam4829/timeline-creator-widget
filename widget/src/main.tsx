@@ -331,6 +331,7 @@ function TimelineEstimator() {
         });
 
         const cleanupClose = on('close-settings' as any, () => {
+          console.log('Settings closed');
           cleanupAdd();
           cleanupRemove();
           cleanupAddCol();

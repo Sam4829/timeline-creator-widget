@@ -143,9 +143,10 @@ function TimelineEstimator() {
     return new Promise<void>((resolve) => {
       // Reuse pre-computed `columns` instead of re-iterating the map
       const colsData = columns;
+      const rowsData = rows;
       const roster = getRosterSnapshot();
 
-      showUI({ width: 400, height: 500, title: 'Settings' }, { type: 'settings', columns: colsData, roster });
+      showUI({ width: 400, height: 500, title: 'Settings' }, { type: 'settings', columns: colsData, rows: rowsData, roster });
       figma.ui.postMessage({ type: 'request-focus' });
 
       // Register listeners lazily after showUI to avoid blocking the click handler
@@ -228,6 +229,36 @@ function TimelineEstimator() {
           updateLastEdited();
         });
 
+        const cleanupAddRow = on('add-row' as any, () => {
+          handleAddRow();
+          const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+          emit('update-rows' as any, updated);
+        });
+
+        const cleanupRemoveRow = on('remove-row' as any, (id: string) => {
+          rowsMap.delete(id);
+          const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+          emit('update-rows' as any, updated);
+          updateLastEdited();
+        });
+
+        const cleanupReorderRow = on('reorder-row-drop' as any, ({ draggedId, targetIndex }) => {
+          const rowsList = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+          const oldIndex = rowsList.findIndex(r => r.id === draggedId);
+          if (oldIndex === -1 || targetIndex < 0 || targetIndex >= rowsList.length || oldIndex === targetIndex) return;
+          
+          const draggedRow = rowsList.splice(oldIndex, 1)[0];
+          rowsList.splice(targetIndex, 0, draggedRow);
+          
+          rowsList.forEach((r, idx) => {
+             const { id: rId, ...rest } = r;
+             rowsMap.set(rId, { ...rest, order: idx });
+          });
+          const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+          emit('update-rows' as any, updated);
+          updateLastEdited();
+        });
+
         const cleanupApplyTemplate = on('apply-template' as any, (templateName: string) => {
           let newCols: ColumnData[] = [];
           let newRows: any[] = [];
@@ -307,6 +338,9 @@ function TimelineEstimator() {
           cleanupRemoveCol();
           cleanupReorderCol();
           cleanupApplyTemplate();
+          cleanupAddRow();
+          cleanupRemoveRow();
+          cleanupReorderRow();
           cleanupClose();
           uiOpen = false;
           figma.closePlugin();
@@ -325,7 +359,8 @@ function TimelineEstimator() {
       const rowsData = rows.map(r => ({
         id: r.id,
         order: r.order,
-        cells: r.cells
+        cells: r.cells,
+        durations: r.durations
       }));
 
       showUI({ width: 466, height: 540, title: 'Plan Timeline' }, { type: 'plan', rows: rowsData, columns: colsData });
@@ -343,7 +378,11 @@ function TimelineEstimator() {
               newCells[cellResult.colId] = cellResult.value;
             }
 
-            rowsMap.set(rowResult.rowId, { ...currentRow, cells: newCells });
+            rowsMap.set(rowResult.rowId, {
+              ...currentRow,
+              cells: newCells,
+              durations: rowResult.durations ?? currentRow.durations
+            });
           }
 
           updateLastEdited();

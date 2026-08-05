@@ -14,6 +14,9 @@ export interface RowData {
   cells: {
     [columnId: string]: CellValue;
   };
+  durations?: {
+    [columnId: string]: string;
+  };
 }
 
 export interface RosterMember {
@@ -32,6 +35,9 @@ export interface PlanCellResult {
 export interface PlanRowResult {
   rowId: string;
   cells: PlanCellResult[];
+  durations?: {
+    [columnId: string]: string;
+  };
 }
 
 export interface DatePickerData {

@@ -1,4 +1,4 @@
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { emit, on } from '@create-figma-plugin/utilities';
 import {
@@ -39,11 +39,20 @@ function Plugin(props: any) {
   return (
     <div>
       {mode === 'date-picker' && <DatePicker {...props.data} />}
-      {mode === 'settings' && <Settings initialColumns={props.columns} roster={props.roster} />}
+      {mode === 'settings' && <Settings initialColumns={props.columns} rows={props.rows} roster={props.roster} />}
       {mode === 'dropdown' && <CellDropdown {...props.data} />}
       {mode === 'plan' && <PlanPopup rows={props.rows} columns={props.columns} />}
     </div>
   );
+}
+
+function getRowLabel(row: any, columns: any[], idx: number): string {
+  const textCol = columns.find((c: any) => c.type === 'text');
+  if (textCol) {
+    const val = row.cells?.[textCol.id];
+    if (typeof val === 'string' && val.trim()) return val.trim();
+  }
+  return `Row ${idx + 1}`;
 }
 
 function buildISODateRange(startDate: string, endDate: string): string {
@@ -98,15 +107,19 @@ function DatePicker({ rowId, colId, currentValue }: DatePickerData) {
   );
 }
 
-function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (ColumnData & { id: string })[], roster: ({ id: string } & RosterMember)[] }) {
-  const [tab, setTab] = useState<'roster' | 'structure' | 'templates'>('templates');
+function Settings({ initialColumns, rows: initialRows, roster: initialRoster }: { initialColumns: (ColumnData & { id: string })[], rows?: any[], roster: ({ id: string } & RosterMember)[] }) {
+  const [tab, setTab] = useState<'roster' | 'templates' | 'rows' | 'structure'>('roster');
   const [localRoster, setLocalRoster] = useState(initialRoster);
   const [localColumns, setLocalColumns] = useState(initialColumns);
+  const [localRows, setLocalRows] = useState(initialRows || []);
   const [newName, setNewName] = useState('');
   const [warningMsg, setWarningMsg] = useState('');
   const [confirmPending, setConfirmPending] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+  const [confirmRemoveRowId, setConfirmRemoveRowId] = useState<string | null>(null);
   const rosterInputRef = useRef<HTMLInputElement>(null);
 
   // When the Roster tab becomes active, focus the "New name" input.
@@ -126,8 +139,9 @@ function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (
       setLocalColumns(updated);
       setWarningMsg('');
     });
+    const unsubRows = on('update-rows' as any, (updated: any[]) => setLocalRows(updated));
     const unsubWarn = on('column-warning' as any, (msg: string) => setWarningMsg(msg));
-    return () => { unsubRoster(); unsubCols(); unsubWarn(); };
+    return () => { unsubRoster(); unsubCols(); unsubRows(); unsubWarn(); };
   }, []);
 
   const handleAddName = () => {
@@ -174,11 +188,14 @@ function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (
   return (
     <Container space="medium">
       <div className="custom-tab-bar">
+        <div className={`custom-tab ${tab === 'roster' ? 'active' : ''}`} onClick={() => setTab('roster')}>
+          Roster
+        </div>
         <div className={`custom-tab ${tab === 'templates' ? 'active' : ''}`} onClick={() => setTab('templates')}>
           Templates
         </div>
-        <div className={`custom-tab ${tab === 'roster' ? 'active' : ''}`} onClick={() => setTab('roster')}>
-          Roster
+        <div className={`custom-tab ${tab === 'rows' ? 'active' : ''}`} onClick={() => setTab('rows')}>
+          Rows
         </div>
         <div className={`custom-tab ${tab === 'structure' ? 'active' : ''}`} onClick={() => setTab('structure')}>
           Structure
@@ -234,6 +251,89 @@ function Settings({ initialColumns, roster: initialRoster }: { initialColumns: (
             />
             <Button onClick={handleAddName}>Add</Button>
           </div>
+        </div>
+      )}
+
+      {tab === 'rows' && (
+        <div>
+          {localRows.length === 0 && (
+            <div className="roster-empty">
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: '12px' }}>
+                <circle cx="20" cy="20" r="19" stroke="var(--figma-color-border)" strokeWidth="2"/>
+                <path d="M20 23C22.2091 23 24 21.2091 24 19C24 16.7909 22.2091 15 20 15C17.7909 15 16 16.7909 16 19C16 21.2091 17.7909 23 20 23Z" stroke="var(--figma-color-text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M26 29C26 26.7909 23.3137 25 20 25C16.6863 25 14 26.7909 14 29" stroke="var(--figma-color-text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              No rows added yet.
+            </div>
+          )}
+          {localRows.map((r, i) => (
+            <div
+              key={r.id}
+              draggable={true}
+              onDragStart={(e) => {
+                setDraggedRowId(r.id);
+                if (e.dataTransfer) {
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', r.id);
+                }
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+                setDragOverRowId(r.id);
+              }}
+              onDragLeave={() => {
+                if (dragOverRowId === r.id) setDragOverRowId(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const droppedId = e.dataTransfer?.getData('text/plain');
+                if (droppedId && droppedId !== r.id) {
+                  const targetIndex = i;
+                  emit('reorder-row-drop', { draggedId: droppedId, targetIndex });
+                }
+                setDraggedRowId(null);
+                setDragOverRowId(null);
+              }}
+              onDragEnd={() => {
+                setDraggedRowId(null);
+                setDragOverRowId(null);
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0',
+                borderBottom: '1px solid var(--figma-color-border, #f0f0f0)',
+                opacity: draggedRowId === r.id ? 0.4 : 1,
+                backgroundColor: dragOverRowId === r.id ? 'var(--figma-color-bg-hover, rgba(0,0,0,0.03))' : 'transparent',
+                boxShadow: dragOverRowId === r.id ? 'inset 0 0 0 1px var(--figma-color-border-brand, #18A0FB)' : 'none',
+                transition: 'background-color 0.1s, box-shadow 0.1s'
+              }}
+            >
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '16px',
+                cursor: draggedRowId === r.id ? 'grabbing' : 'grab',
+                color: 'var(--figma-color-text-tertiary, #b3b3b3)'
+              }}>
+                ⣿
+              </div>
+              <div style={{ flex: 1 }}>
+                <Text style={{ color: 'var(--figma-color-text)' }}>{getRowLabel(r, localColumns, i)}</Text>
+              </div>
+              <div style={{ width: 'auto', textAlign: 'right', display: 'flex', gap: '8px' }}>
+                {confirmRemoveRowId === r.id ? (
+                  <Fragment>
+                    <span style={{ fontSize: '12px', color: 'var(--figma-color-text)' }}>Delete?</span>
+                    <span style={{ cursor: 'pointer', color: 'var(--figma-color-text-danger, #ff6b6b)', fontWeight: 'bold', fontSize: '12px' }} onClick={() => { emit('remove-row', r.id); setConfirmRemoveRowId(null); }}>Yes</span>
+                    <span style={{ cursor: 'pointer', color: 'var(--figma-color-text-secondary, #b3b3b3)', fontSize: '12px' }} onClick={() => setConfirmRemoveRowId(null)}>Cancel</span>
+                  </Fragment>
+                ) : (
+                  <span style={{ cursor: 'pointer', color: 'var(--figma-color-text-danger, #ff6b6b)', fontSize: '12px' }} onClick={() => setConfirmRemoveRowId(r.id)}>Remove</span>
+                )}
+              </div>
+            </div>
+          ))}
+          <VerticalSpace space="medium" />
+          <Button onClick={() => emit('add-row')}>+ Add row</Button>
         </div>
       )}
 
@@ -479,16 +579,9 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
 
   const [planRows, setPlanRows] = useState<PlanRowInput[]>(() =>
     rows.map((row: any, idx: number) => {
-      const label = (() => {
-        const textCol = columns.find((c: any) => c.type === 'text');
-        if (textCol) {
-          const val = row.cells?.[textCol.id];
-          if (typeof val === 'string' && val.trim()) return val.trim();
-        }
-        return `Row ${idx + 1}`;
-      })();
+      const label = getRowLabel(row, columns, idx);
       const durations: { [colId: string]: string } = {};
-      daterangeCols.forEach((c: any) => { durations[c.id] = '1'; });
+      daterangeCols.forEach((c: any) => { durations[c.id] = row.durations?.[c.id] ?? '1'; });
       return { rowId: row.id, label, startDate: '', durations };
     })
   );
@@ -523,7 +616,7 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
         cursor = new Date(prevRowEndForChaining);
       } else {
         // Row 1 with no start date — skip (should be blocked by UI)
-        results.push({ rowId: pr.rowId, cells: [] });
+        results.push({ rowId: pr.rowId, cells: [], durations: pr.durations });
         continue;
       }
 
@@ -576,7 +669,7 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
         prevRowEndForChaining = new Date(cursor);
       }
 
-      results.push({ rowId: pr.rowId, cells });
+      results.push({ rowId: pr.rowId, cells, durations: pr.durations });
     }
 
     return results;

@@ -445,8 +445,6 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster }: 
         </div>
       )}
 
-      <VerticalSpace space="large" />
-      <Button fullWidth onClick={() => emit('close-settings')}>Done</Button>
     </Container>
   );
 }

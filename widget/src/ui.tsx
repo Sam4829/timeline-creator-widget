@@ -39,9 +39,10 @@ function Plugin(props: any) {
   return (
     <div>
       {mode === 'date-picker' && <DatePicker {...props.data} />}
-      {mode === 'settings' && <Settings initialColumns={props.columns} rows={props.rows} roster={props.roster} />}
+      {mode === 'settings' && <Settings initialColumns={props.columns} rows={props.rows} roster={props.roster} themeName={props.themeName} />}
       {mode === 'dropdown' && <CellDropdown {...props.data} />}
       {mode === 'plan' && <PlanPopup rows={props.rows} columns={props.columns} />}
+      {mode === 'copy-clipboard' && <CopyClipboard text={props.text} />}
     </div>
   );
 }
@@ -107,7 +108,8 @@ function DatePicker({ rowId, colId, currentValue }: DatePickerData) {
   );
 }
 
-function Settings({ initialColumns, rows: initialRows, roster: initialRoster }: { initialColumns: (ColumnData & { id: string })[], rows?: any[], roster: ({ id: string } & RosterMember)[] }) {
+function Settings({ initialColumns, rows: initialRows, roster: initialRoster, themeName: initialTheme }: { initialColumns: (ColumnData & { id: string })[], rows?: any[], roster: ({ id: string } & RosterMember)[], themeName: 'dark' | 'light' }) {
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(initialTheme);
   const [tab, setTab] = useState<'roster' | 'templates' | 'rows' | 'structure'>('roster');
   const [localRoster, setLocalRoster] = useState(initialRoster);
   const [localColumns, setLocalColumns] = useState(initialColumns);
@@ -424,6 +426,14 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster }: 
       {tab === 'templates' && (
         <div>
           <Text style={{ color: 'var(--figma-color-text-secondary, #666)', marginBottom: '16px', display: 'block' }}>Select a preset timeline structure. Warning: this replaces current data.</Text>
+          {/* Theme Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', padding: '8px 12px', background: 'var(--figma-color-bg-secondary)', borderRadius: '6px' }}>
+            <Text style={{ fontWeight: 'bold' }}>Theme</Text>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <Button secondary={currentTheme !== 'light'} onClick={() => { setCurrentTheme('light'); emit('update-theme', 'light'); }}>Light</Button>
+              <Button secondary={currentTheme !== 'dark'} onClick={() => { setCurrentTheme('dark'); emit('update-theme', 'dark'); }}>Dark</Button>
+            </div>
+          </div>
           {confirmPending ? (
             <div style={{ padding: '12px', background: 'var(--figma-color-bg-secondary, #f5f5f5)', border: '1px solid var(--figma-color-border, #e0e0e0)', borderRadius: '6px' }}>
               <Text style={{ display: 'block', marginBottom: '12px', fontSize: '12px', color: 'var(--figma-color-text, #000)' }}>
@@ -526,6 +536,80 @@ function CellDropdown({ rowId, colId, type, options, currentValue }: DropdownDat
     </Container>
   );
 }
+
+function CopyClipboard({ text }: { text: string }) {
+  const [status, setStatus] = useState<'copying' | 'failed' | 'done'>('copying');
+
+  // execCommand fallback — works in Figma plugin iframes where navigator.clipboard is undefined.
+  // Creates a hidden textarea, selects all text, calls document.execCommand('copy'), then removes it.
+  const execCommandCopy = (): boolean => {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      // Position off-screen so it doesn't flash visually
+      textarea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return success;
+    } catch {
+      return false;
+    }
+  };
+
+  const performCopy = () => {
+    // Try modern Clipboard API first (available in some Figma contexts / future versions)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          emit('copied');
+        })
+        .catch(() => {
+          // Clipboard API rejected — try execCommand fallback
+          const ok = execCommandCopy();
+          if (ok) {
+            emit('copied');
+          } else {
+            setStatus('failed');
+            emit('copy-failed', 'Permission denied');
+          }
+        });
+    } else {
+      // navigator.clipboard is undefined (Figma sandboxed iframe) — go straight to execCommand
+      const ok = execCommandCopy();
+      if (ok) {
+        emit('copied');
+      } else {
+        setStatus('failed');
+        emit('copy-failed', 'execCommand copy failed');
+      }
+    }
+  };
+
+  useEffect(() => {
+    performCopy();
+  }, [text]);
+
+  return (
+    <Container space="medium">
+      <VerticalSpace space="medium" />
+      <Text style={{ textAlign: 'center', display: 'block' }}>
+        {status === 'failed'
+          ? 'Could not copy automatically. Click below to copy.'
+          : 'Copying timeline to clipboard...'}
+      </Text>
+      <VerticalSpace space="medium" />
+      {status === 'failed' && (
+        <Button fullWidth onClick={performCopy}>
+          Click to Copy
+        </Button>
+      )}
+    </Container>
+  );
+}
+
 
 // ─── Plan Popup ──────────────────────────────────────────────────────────────
 

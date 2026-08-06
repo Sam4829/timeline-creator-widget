@@ -24,7 +24,7 @@ export interface RosterMember {
 }
 
 // Iframe Messages
-export type UIMode = 'settings' | 'date-picker' | 'dropdown' | 'add-name' | 'plan';
+export type UIMode = 'settings' | 'date-picker' | 'dropdown' | 'add-name' | 'plan' | 'copy-clipboard';
 
 // Plan feature result types
 export interface PlanCellResult {

@@ -146,11 +146,16 @@ function TimelineEstimator() {
       const rowsData = rows;
       const roster = getRosterSnapshot();
 
-      showUI({ width: 400, height: 500, title: 'Settings' }, { type: 'settings', columns: colsData, rows: rowsData, roster });
+      showUI({ width: 400, height: 500, title: 'Settings' }, { type: 'settings', columns: colsData, rows: rowsData, roster, themeName });
       figma.ui.postMessage({ type: 'request-focus' });
 
       // Register listeners lazily after showUI to avoid blocking the click handler
       setTimeout(() => {
+        const cleanupUpdateTheme = on('update-theme' as any, (newTheme: 'dark' | 'light') => {
+          setThemeName(newTheme);
+          updateLastEdited();
+        });
+
         const cleanupAdd = on('add-roster-name' as any, (name: string) => {
           rosterMap.set(`roster-${Date.now()}`, { name });
           emit('update-roster' as any, getRosterSnapshot());
@@ -332,6 +337,7 @@ function TimelineEstimator() {
 
         const cleanupClose = on('close-settings' as any, () => {
           console.log('Settings closed');
+          cleanupUpdateTheme();
           cleanupAdd();
           cleanupRemove();
           cleanupAddCol();
@@ -559,8 +565,11 @@ function TimelineEstimator() {
     }
 
     // Assignee
-    const avatarColors = ['#8A38F5', '#198F51', '#0A6DC2', '#D05141'];
-    const getAvatarColor = (name: string) => avatarColors[name.length % avatarColors.length];
+    const avatarColors = ['#8A38F5', '#198F51', '#0A6DC2', '#D05141', '#D4860A', '#1A7A8A'];
+    const getAvatarColor = (name: string) => {
+      const hash = name.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      return avatarColors[hash % avatarColors.length];
+    };
 
     let assignees: string[] = [];
     if (Array.isArray(cellValue)) {
@@ -585,6 +594,67 @@ function TimelineEstimator() {
         <Text fill={theme.cellFg} fontSize={11} width="fill-parent" horizontalAlignText="left">{valStr} &#x25BE;</Text>
       </AutoLayout>
     );
+  };
+
+  const generateTSV = (): string => {
+    const escapeTSVCell = (val: string): string => {
+      if (/[\t\n\r"]/.test(val)) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+
+    const header = columns.map(col => escapeTSVCell(col.name)).join('\t');
+    const dataRows = rows.map(row => {
+      return columns.map(col => {
+        const cellValue = row.cells[col.id];
+        let val = '';
+        if (col.type === 'daterange') {
+          val = cellValue ? formatFriendlyDate(cellValue as string) : '';
+        } else if (col.type === 'assignee') {
+          val = Array.isArray(cellValue) ? cellValue.join(', ') : (cellValue as string) || '';
+        } else {
+          val = (cellValue as string) || '';
+        }
+        return escapeTSVCell(val);
+      }).join('\t');
+    });
+
+    return [header, ...dataRows].join('\n');
+  };
+
+  const handleCopyPlan = () => {
+    if (uiOpen) return new Promise<void>(r => r());
+    uiOpen = true;
+
+    return new Promise<void>((resolve) => {
+      const tsvText = generateTSV();
+
+      const timer = setTimeout(() => {
+        cleanupCopied();
+        cleanupFailed();
+        uiOpen = false;
+        figma.closePlugin();
+        figma.notify('Copying timeline timed out', { error: true });
+        resolve();
+      }, 10000);
+
+      const cleanupCopied = once('copied' as any, () => {
+        clearTimeout(timer);
+        cleanupFailed();
+        uiOpen = false;
+        figma.closePlugin();
+        figma.notify('Plan copied to clipboard!');
+        resolve();
+      });
+
+      const cleanupFailed = once('copy-failed' as any, (_errMessage: string) => {
+        clearTimeout(timer);
+        // Modal stays open; cleanupCopied is still active for the manual click
+      });
+
+      showUI({ width: 320, height: 140, title: 'Copy Plan' }, { type: 'copy-clipboard', text: tsvText });
+    });
   };
 
   return (
@@ -701,12 +771,12 @@ function TimelineEstimator() {
         </AutoLayout>
       ))}
 
-      {/* Footer Add Row */}
+      {/* Footer Add Row & Copy Plan */}
       <AutoLayout width="fill-parent" height={1} fill={theme.border} />
-      <AutoLayout width="fill-parent" padding={12} horizontalAlignItems="start">
+      <AutoLayout width="fill-parent" padding={12} spacing="auto" verticalAlignItems="center">
         <AutoLayout
           padding={{ horizontal: 12, vertical: 6 }}
-          stroke="#FFFFFF1A"
+          stroke={theme.border}
           strokeWidth={1}
           cornerRadius={5}
           verticalAlignItems="center"
@@ -716,6 +786,19 @@ function TimelineEstimator() {
         >
           <SVG src={getPlusIcon(theme.cellFg)} />
           <Text fill={theme.cellFg} fontSize={11}>Add row</Text>
+        </AutoLayout>
+
+        <AutoLayout
+          padding={{ horizontal: 12, vertical: 6 }}
+          stroke={theme.border}
+          strokeWidth={1}
+          cornerRadius={5}
+          verticalAlignItems="center"
+          spacing={4}
+          onClick={handleCopyPlan}
+          hoverStyle={{ fill: theme.subBg }}
+        >
+          <Text fill={theme.cellFg} fontSize={11}>Copy plan</Text>
         </AutoLayout>
       </AutoLayout>
     </AutoLayout>

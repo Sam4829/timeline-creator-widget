@@ -130,8 +130,10 @@ npm run watch
 
 ### Core Widget Features
 - **Date Range Audit History**: Track changes to start/end dates, complete with timestamps, user names, and optional change reasons.
-- **Team Roster & Assignees**: Manage project team members and select single or multiple assignees per row.
+- **Team Roster & Assignees**: Manage project team members and select single or multiple assignees per row with dynamic avatar colors.
 - **Custom Status Badges**: Select and render status tags dynamically on canvas.
+- **Light & Dark Theme Toggle**: Switch instantly between Light and Dark themes directly within the Settings menu.
+- **Copy Plan Exporter**: Copy full timeline data to clipboard as formatted TSV for pasting directly into Excel, Google Sheets, or docs.
 - **On-Canvas Controls**: Add/remove rows and columns, reorder items, and customize table settings directly from the canvas interface.
 
 ---

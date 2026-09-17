@@ -21,6 +21,7 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 - **Copy Plan TSV Exporter**: Copy Plan button in canvas widget footer. Serializes sorted columns and rows to TSV format with RFC 4180 escaping and human-readable dates. Uses `document.execCommand('copy')` fallback for sandboxed iframe compatibility.
 - **6-Color Avatar Palette**: Expanded avatar colors to 6 distinct tokens with char-code sum hashing (`name.split('').reduce(...)`) for uniform visual distribution across team assignees.
 - **Footer AutoLayout Fix**: Fixed `AutoLayout` crash caused by invalid `horizontalAlignItems="space-between"` prop by using `spacing="auto"`.
+- **Widget Manifest & Sandbox Config**: Updated `editorType` to `["figma", "figjam"]` and added `networkAccess: { allowedDomains: ["none"] }` to ensure compatibility with both Figma Design and FigJam canvases and comply with Figma CSP security requirements.
 - **Remote Repo**: `https://github.com/Sam4829/timeline-creator-widget.git` (main branch). Latest commit: `32c0c53`.
 
 ### Active Checklist
@@ -56,7 +57,7 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 
 | # | Finding | Location | Severity | Verdict |
 |---|---------|----------|----------|---------|
-| 1 | Unbound `useEffect` without `[]` | `main.tsx:84` | Low | DOWNGRADED -- Figma Widget `useEffect` without `[]` is idiomatic; runs once per user-initiated cycle |
+| 1 | Unbound `useEffect` without `[]` — guard on `initialized` flag | `main.tsx:84` | **Critical** | **FIXED** — Figma Widget `useEffect` fires after every re-render. Each `useSyncedMap.set()` triggers a new render before `initialized` commits, causing a rapid-fire loop ("Too many elapsed hits of react") that crashes the widget environment. **Fixed** by guarding on `columnsMap.keys().length === 0` — once the first `.set()` call succeeds, all subsequent renders short-circuit immediately. |
 | 2 | Sequential `useSyncedMap.set()` in reorder loops | `main.tsx:223`, `253`, `322` | Low | DOWNGRADED -- Figma batches synced map mutations within a single synchronous event turn |
 | 3 | Map-to-array conversion + sort on every render | `main.tsx:120-126` | Low-Medium | CONFIRMED -- creates allocations per render; `useMemo` unavailable in Figma Widget API |
 | 4 | Synchronous date calcs per keystroke in PlanPopup | `ui.tsx:605-676` | INVALID | `computePlan()` runs only on "Apply Plan" button click, not per-keystroke |

@@ -14,6 +14,7 @@ const {
   useSyncedState,
   useSyncedMap,
   useEffect,
+  usePropertyMenu,
   SVG
 } = widget;
 
@@ -73,7 +74,6 @@ function TimelineEstimator() {
   const [projectName, setProjectName] = useSyncedState('projectName', 'New Project');
   const [themeName, setThemeName] = useSyncedState<'dark' | 'light'>('theme', 'dark');
   const [lastEditedBy, setLastEditedBy] = useSyncedState('lastEditedBy', 'You');
-  const [initialized, setInitialized] = useSyncedState('initialized', false);
 
   const rosterMap = useSyncedMap<RosterMember>('roster');
   const columnsMap = useSyncedMap<ColumnData>('columns');
@@ -81,10 +81,57 @@ function TimelineEstimator() {
 
   const theme = ThemeTokens[themeName as keyof typeof ThemeTokens];
 
-  useEffect(() => {
-    if (!initialized) {
-      setInitialized(true);
+  const getCurrentUserName = (): string => {
+    try {
+      return figma.currentUser?.name || 'Unknown';
+    } catch {
+      return 'Unknown';
+    }
+  };
 
+  const updateLastEdited = () => {
+    try {
+      setLastEditedBy(getCurrentUserName());
+    } catch {
+    }
+  };
+
+  // F10: Native property-menu dropdown for theme switching.
+  // Surfaces in the selection toolbar — no custom chrome needed in the iframe.
+  usePropertyMenu(
+    [
+      {
+        itemType: 'dropdown',
+        propertyName: 'theme',
+        tooltip: 'Widget theme',
+        options: [
+          { option: 'dark',  label: 'Dark'  },
+          { option: 'light', label: 'Light' },
+        ],
+        selectedOption: themeName,
+      },
+    ],
+    ({ propertyName, propertyValue }) => {
+      if (propertyName === 'theme') {
+        setThemeName(propertyValue as 'dark' | 'light');
+        updateLastEdited();
+      }
+    }
+  );
+
+  // F8: FigJam is a light-only environment — force light theme on first render
+  // if the widget was previously in dark mode. The editorType check acts as the guard.
+  useEffect(() => {
+    if (figma.editorType === 'figjam' && themeName !== 'light') {
+      setThemeName('light');
+    }
+  });
+
+  // Seed default columns + first row. Guard on map being empty so this is a no-op
+  // after the first render — columnsMap.set() triggers re-render but on re-render
+  // the map has keys and the block is skipped.
+  useEffect(() => {
+    if (columnsMap.keys().length === 0) {
       columnsMap.set('col-1', { name: 'Task / Screen', type: 'text', order: 0, locked: true });
       columnsMap.set('col-2', { name: 'Start \u2013 End', type: 'daterange', order: 1 });
       columnsMap.set('col-3', { name: 'Status', type: 'status', order: 2 });
@@ -102,20 +149,6 @@ function TimelineEstimator() {
     }
   });
 
-  const getCurrentUserName = (): string => {
-    try {
-      return figma.currentUser?.name || 'Unknown';
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  const updateLastEdited = () => {
-    try {
-      setLastEditedBy(getCurrentUserName());
-    } catch {
-    }
-  };
 
   const columns = columnsMap.keys()
     .map((k: string) => ({ id: k, ...columnsMap.get(k)! }))
@@ -149,211 +182,215 @@ function TimelineEstimator() {
       showUI({ width: 400, height: 500, title: 'Settings' }, { type: 'settings', columns: colsData, rows: rowsData, roster, themeName });
       figma.ui.postMessage({ type: 'request-focus' });
 
-      // Register listeners lazily after showUI to avoid blocking the click handler
-      setTimeout(() => {
-        const cleanupUpdateTheme = on('update-theme' as any, (newTheme: 'dark' | 'light') => {
-          setThemeName(newTheme);
-          updateLastEdited();
-        });
+      // F4: Register all listeners synchronously — no setTimeout needed.
+      // on() is safe to call immediately after showUI(); deferring it was the
+      // source of a race where a fast-arriving message found no registered handler.
+      const cleanupAdd = on('add-roster-name' as any, (name: string) => {
+        rosterMap.set(`roster-${Date.now()}`, { name });
+        emit('update-roster' as any, getRosterSnapshot());
+      });
 
-        const cleanupAdd = on('add-roster-name' as any, (name: string) => {
-          rosterMap.set(`roster-${Date.now()}`, { name });
-          emit('update-roster' as any, getRosterSnapshot());
-        });
+      const cleanupRemove = on('remove-roster-name' as any, (id: string) => {
+        rosterMap.delete(id);
+        emit('update-roster' as any, getRosterSnapshot());
+      });
 
-        const cleanupRemove = on('remove-roster-name' as any, (id: string) => {
-          rosterMap.delete(id);
-          emit('update-roster' as any, getRosterSnapshot());
-        });
+      const cleanupAddCol = on('add-column' as any, () => {
+        const order = columnsMap.keys().length;
+        const newId = `col-${Date.now()}`;
+        columnsMap.set(newId, { name: 'New Column', type: 'text', order });
+        const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        emit('update-columns' as any, updated);
+        updateLastEdited();
+      });
 
-        const cleanupAddCol = on('add-column' as any, () => {
-          const order = columnsMap.keys().length;
-          const newId = `col-${Date.now()}`;
-          columnsMap.set(newId, { name: 'New Column', type: 'text', order });
-          const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          emit('update-columns' as any, updated);
-          updateLastEdited();
-        });
-
-        const cleanupUpdateCol = on('update-column' as any, ({ id, updates }) => {
-          const col = columnsMap.get(id);
-          if (col) {
-            if (updates.type && updates.type !== col.type) {
-              let hasData = false;
-              rowsMap.keys().forEach(rk => {
-                const r = rowsMap.get(rk)!;
-                if (r.cells[id] && r.cells[id] !== '') {
-                   if (typeof r.cells[id] === 'object' && r.cells[id] !== null) {
-                     if ((r.cells[id] as any).current) hasData = true;
-                   } else {
-                     hasData = true;
-                   }
-                }
-              });
-              if (hasData) {
-                emit('column-warning' as any, "Clear this column's data first before changing its type.");
-                return;
+      const cleanupUpdateCol = on('update-column' as any, ({ id, updates }) => {
+        const col = columnsMap.get(id);
+        if (col) {
+          if (updates.type && updates.type !== col.type) {
+            let hasData = false;
+            rowsMap.keys().forEach(rk => {
+              const r = rowsMap.get(rk)!;
+              if (r.cells[id] && r.cells[id] !== '') {
+                 if (typeof r.cells[id] === 'object' && r.cells[id] !== null) {
+                   if ((r.cells[id] as any).current) hasData = true;
+                 } else {
+                   hasData = true;
+                 }
               }
+            });
+            if (hasData) {
+              emit('column-warning' as any, "Clear this column's data first before changing its type.");
+              return;
             }
-            columnsMap.set(id, { ...col, ...updates });
-            const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-            emit('update-columns' as any, updated);
-            updateLastEdited();
+          }
+          columnsMap.set(id, { ...col, ...updates });
+          const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+          emit('update-columns' as any, updated);
+          updateLastEdited();
+        }
+      });
+
+      const cleanupRemoveCol = on('remove-column' as any, (id: string) => {
+        columnsMap.delete(id);
+        rowsMap.keys().forEach(rk => {
+          const r = rowsMap.get(rk)!;
+          if (id in r.cells) {
+            const newCells = { ...r.cells };
+            delete newCells[id];
+            rowsMap.set(rk, { ...r, cells: newCells });
           }
         });
+        const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        emit('update-columns' as any, updated);
+        updateLastEdited();
+      });
 
-        const cleanupRemoveCol = on('remove-column' as any, (id: string) => {
-          columnsMap.delete(id);
-          rowsMap.keys().forEach(rk => {
-            const r = rowsMap.get(rk)!;
-            if (id in r.cells) {
-              const newCells = { ...r.cells };
-              delete newCells[id];
-              rowsMap.set(rk, { ...r, cells: newCells });
-            }
-          });
-          const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          emit('update-columns' as any, updated);
-          updateLastEdited();
+      const cleanupReorderCol = on('reorder-column-drop' as any, ({ draggedId, targetIndex }) => {
+        const colsList = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        const oldIndex = colsList.findIndex(c => c.id === draggedId);
+        if (oldIndex === -1 || targetIndex < 1 || targetIndex >= colsList.length || oldIndex === targetIndex) return;
+        
+        const draggedCol = colsList.splice(oldIndex, 1)[0];
+        colsList.splice(targetIndex, 0, draggedCol);
+        
+        colsList.forEach((c, idx) => {
+           const { id: cId, ...rest } = c;
+           columnsMap.set(cId, { ...rest, order: idx });
         });
+        const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        emit('update-columns' as any, updated);
+        updateLastEdited();
+      });
 
-        const cleanupReorderCol = on('reorder-column-drop' as any, ({ draggedId, targetIndex }) => {
-          const colsList = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          const oldIndex = colsList.findIndex(c => c.id === draggedId);
-          if (oldIndex === -1 || targetIndex < 1 || targetIndex >= colsList.length || oldIndex === targetIndex) return;
-          
-          const draggedCol = colsList.splice(oldIndex, 1)[0];
-          colsList.splice(targetIndex, 0, draggedCol);
-          
-          colsList.forEach((c, idx) => {
-             const { id: cId, ...rest } = c;
-             columnsMap.set(cId, { ...rest, order: idx });
-          });
-          const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          emit('update-columns' as any, updated);
-          updateLastEdited();
+      const cleanupAddRow = on('add-row' as any, () => {
+        handleAddRow();
+        const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        emit('update-rows' as any, updated);
+      });
+
+      const cleanupRemoveRow = on('remove-row' as any, (id: string) => {
+        rowsMap.delete(id);
+        const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        emit('update-rows' as any, updated);
+        updateLastEdited();
+      });
+
+      const cleanupReorderRow = on('reorder-row-drop' as any, ({ draggedId, targetIndex }) => {
+        const rowsList = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        const oldIndex = rowsList.findIndex(r => r.id === draggedId);
+        if (oldIndex === -1 || targetIndex < 0 || targetIndex >= rowsList.length || oldIndex === targetIndex) return;
+        
+        const draggedRow = rowsList.splice(oldIndex, 1)[0];
+        rowsList.splice(targetIndex, 0, draggedRow);
+        
+        rowsList.forEach((r, idx) => {
+           const { id: rId, ...rest } = r;
+           rowsMap.set(rId, { ...rest, order: idx });
         });
+        const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        emit('update-rows' as any, updated);
+        updateLastEdited();
+      });
 
-        const cleanupAddRow = on('add-row' as any, () => {
-          handleAddRow();
-          const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          emit('update-rows' as any, updated);
-        });
+      // F1: Apply-template handler — derive column keys from the column array
+      // so seed cell references stay correct if the template definition changes.
+      const cleanupApplyTemplate = on('apply-template' as any, (templateName: string) => {
+        let newCols: ColumnData[] = [];
 
-        const cleanupRemoveRow = on('remove-row' as any, (id: string) => {
-          rowsMap.delete(id);
-          const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          emit('update-rows' as any, updated);
-          updateLastEdited();
-        });
+        if (templateName === 'Polaris D&E') {
+          newCols = [
+            { name: 'Task / Screen',          type: 'text',      order: 0,  locked: true },
+            { name: 'Screenshot mapping',     type: 'daterange', order: 1  },
+            { name: 'Master screen analysis', type: 'daterange', order: 2  },
+            { name: 'VD start date',          type: 'daterange', order: 3  },
+            { name: 'Draft 1 review',         type: 'daterange', order: 4  },
+            { name: 'Feedback updates',       type: 'daterange', order: 5  },
+            { name: 'Final review',           type: 'daterange', order: 6  },
+            { name: 'Component creation',     type: 'daterange', order: 7  },
+            { name: 'Responsive check',       type: 'daterange', order: 8  },
+            { name: 'Release file update',    type: 'daterange', order: 9  },
+            { name: 'Tech handover',          type: 'daterange', order: 10 },
+            { name: 'Assignee',               type: 'assignee',  order: 11 },
+            { name: 'Current status',         type: 'status',    order: 12 },
+          ];
+        } else if (templateName === 'Design Sprint') {
+          newCols = [
+            { name: 'Phase',               type: 'text',      order: 0, locked: true },
+            { name: 'Understand & Define', type: 'daterange', order: 1 },
+            { name: 'Sketch & Decide',     type: 'daterange', order: 2 },
+            { name: 'Prototype',           type: 'daterange', order: 3 },
+            { name: 'Test',                type: 'daterange', order: 4 },
+            { name: 'Assignee',            type: 'assignee',  order: 5 },
+            { name: 'Status',              type: 'status',    order: 6 },
+          ];
+        } else if (templateName === 'Dev Timeline') {
+          newCols = [
+            { name: 'Feature',    type: 'text',      order: 0, locked: true },
+            { name: 'Frontend',   type: 'daterange', order: 1 },
+            { name: 'Backend',    type: 'daterange', order: 2 },
+            { name: 'QA Testing', type: 'daterange', order: 3 },
+            { name: 'Deployment', type: 'daterange', order: 4 },
+            { name: 'Lead',       type: 'assignee',  order: 5 },
+            { name: 'Status',     type: 'status',    order: 6 },
+          ];
+        } else {
+          // Blank
+          newCols = [{ name: 'Task', type: 'text', order: 0, locked: true }];
+        }
 
-        const cleanupReorderRow = on('reorder-row-drop' as any, ({ draggedId, targetIndex }) => {
-          const rowsList = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          const oldIndex = rowsList.findIndex(r => r.id === draggedId);
-          if (oldIndex === -1 || targetIndex < 0 || targetIndex >= rowsList.length || oldIndex === targetIndex) return;
-          
-          const draggedRow = rowsList.splice(oldIndex, 1)[0];
-          rowsList.splice(targetIndex, 0, draggedRow);
-          
-          rowsList.forEach((r, idx) => {
-             const { id: rId, ...rest } = r;
-             rowsMap.set(rId, { ...rest, order: idx });
-          });
-          const updated = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          emit('update-rows' as any, updated);
-          updateLastEdited();
-        });
+        // Derive the actual stored keys from the column indices (col-1 … col-N).
+        // Never hard-code the suffix — it silently corrupts if columns are reordered.
+        const colKeys = newCols.map((_, i) => `col-${i + 1}`);
+        const textKey   = colKeys[newCols.findIndex(c => c.type === 'text')] ?? colKeys[0];
+        const statusKey = colKeys[newCols.findIndex(c => c.type === 'status')];
 
-        const cleanupApplyTemplate = on('apply-template' as any, (templateName: string) => {
-          let newCols: ColumnData[] = [];
-          let newRows: any[] = [];
-          
-          if (templateName === 'Polaris D&E') {
-            newCols = [
-              { name: 'Task / Screen', type: 'text', order: 0, locked: true },
-              { name: 'Screenshot mapping', type: 'daterange', order: 1 },
-              { name: 'Master screen analysis', type: 'daterange', order: 2 },
-              { name: 'VD start date', type: 'daterange', order: 3 },
-              { name: 'Draft 1 review', type: 'daterange', order: 4 },
-              { name: 'Feedback updates', type: 'daterange', order: 5 },
-              { name: 'Final review', type: 'daterange', order: 6 },
-              { name: 'Component creation', type: 'daterange', order: 7 },
-              { name: 'Responsive check', type: 'daterange', order: 8 },
-              { name: 'Release file update', type: 'daterange', order: 9 },
-              { name: 'Tech handover', type: 'daterange', order: 10 },
-              { name: 'Assignee', type: 'assignee', order: 11 },
-              { name: 'Current status', type: 'status', order: 12 }
-            ];
-            newRows = [
-              { 'col-1': 'Onboarding flow', 'col-13': 'Yet to start' }
-            ];
-          } else if (templateName === 'Design Sprint') {
-            newCols = [
-              { name: 'Phase', type: 'text', order: 0, locked: true },
-              { name: 'Understand & Define', type: 'daterange', order: 1 },
-              { name: 'Sketch & Decide', type: 'daterange', order: 2 },
-              { name: 'Prototype', type: 'daterange', order: 3 },
-              { name: 'Test', type: 'daterange', order: 4 },
-              { name: 'Assignee', type: 'assignee', order: 5 },
-              { name: 'Status', type: 'status', order: 6 }
-            ];
-            newRows = [
-              { 'col-1': 'Sprint 1', 'col-7': 'WIP' }
-            ];
-          } else if (templateName === 'Dev Timeline') {
-            newCols = [
-              { name: 'Feature', type: 'text', order: 0, locked: true },
-              { name: 'Frontend', type: 'daterange', order: 1 },
-              { name: 'Backend', type: 'daterange', order: 2 },
-              { name: 'QA Testing', type: 'daterange', order: 3 },
-              { name: 'Deployment', type: 'daterange', order: 4 },
-              { name: 'Lead', type: 'assignee', order: 5 },
-              { name: 'Status', type: 'status', order: 6 }
-            ];
-            newRows = [
-              { 'col-1': 'User Authentication', 'col-7': 'Done' },
-              { 'col-1': 'Dashboard', 'col-7': 'WIP' }
-            ];
-          } else {
-            newCols = [
-              { name: 'Task', type: 'text', order: 0, locked: true }
-            ];
-            newRows = [];
-          }
+        type SeedCells = Record<string, string>;
+        let newRows: Array<{ order: number; cells: SeedCells }> = [];
 
-          columnsMap.keys().forEach(k => columnsMap.delete(k));
-          rowsMap.keys().forEach(k => rowsMap.delete(k));
+        if (templateName === 'Polaris D&E') {
+          newRows = [
+            { order: 0, cells: { [textKey]: 'Onboarding flow', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+          ];
+        } else if (templateName === 'Design Sprint') {
+          newRows = [
+            { order: 0, cells: { [textKey]: 'Sprint 1', ...(statusKey ? { [statusKey]: 'WIP' } : {}) } }
+          ];
+        } else if (templateName === 'Dev Timeline') {
+          newRows = [
+            { order: 0, cells: { [textKey]: 'User Authentication', ...(statusKey ? { [statusKey]: 'Done' } : {}) } },
+            { order: 1, cells: { [textKey]: 'Dashboard',           ...(statusKey ? { [statusKey]: 'WIP'  } : {}) } },
+          ];
+        }
 
-          newCols.forEach((c, i) => columnsMap.set(`col-${i+1}`, c));
-          newRows.forEach((r, i) => {
-             rowsMap.set(`row-${i+1}`, { order: i, cells: r });
-          });
-          
-          updateLastEdited();
-          
-          const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
-          emit('update-columns' as any, updated);
-        });
+        columnsMap.keys().forEach(k => columnsMap.delete(k));
+        rowsMap.keys().forEach(k => rowsMap.delete(k));
 
-        const cleanupClose = on('close-settings' as any, () => {
-          console.log('Settings closed');
-          cleanupUpdateTheme();
-          cleanupAdd();
-          cleanupRemove();
-          cleanupAddCol();
-          cleanupUpdateCol();
-          cleanupRemoveCol();
-          cleanupReorderCol();
-          cleanupApplyTemplate();
-          cleanupAddRow();
-          cleanupRemoveRow();
-          cleanupReorderRow();
-          cleanupClose();
-          uiOpen = false;
-          figma.closePlugin();
-          resolve();
-        });
-      }, 0);
+        newCols.forEach((c, i) => columnsMap.set(`col-${i + 1}`, c));
+        newRows.forEach((r, i) => rowsMap.set(`row-${i + 1}`, r));
+
+        updateLastEdited();
+
+        const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        emit('update-columns' as any, updated);
+      });
+
+      const cleanupClose = on('close-settings' as any, () => {
+        cleanupAdd();
+        cleanupRemove();
+        cleanupAddCol();
+        cleanupUpdateCol();
+        cleanupRemoveCol();
+        cleanupReorderCol();
+        cleanupApplyTemplate();
+        cleanupAddRow();
+        cleanupRemoveRow();
+        cleanupReorderRow();
+        cleanupClose();
+        uiOpen = false;
+        figma.closePlugin();
+        resolve();
+      });
     });
   };
 
@@ -373,32 +410,31 @@ function TimelineEstimator() {
       showUI({ width: 466, height: 540, title: 'Plan Timeline' }, { type: 'plan', rows: rowsData, columns: colsData });
       figma.ui.postMessage({ type: 'request-focus' });
 
-      setTimeout(() => {
-        const cleanupApplyPlan = on('apply-plan' as any, (planResults: any[]) => {
-          for (const rowResult of planResults) {
-            const currentRow = rowsMap.get(rowResult.rowId);
-            if (!currentRow) continue;
+      // F4: Register synchronously — no setTimeout wrapper.
+      const cleanupApplyPlan = on('apply-plan' as any, (planResults: any[]) => {
+        for (const rowResult of planResults) {
+          const currentRow = rowsMap.get(rowResult.rowId);
+          if (!currentRow) continue;
 
-            const newCells = { ...currentRow.cells };
+          const newCells = { ...currentRow.cells };
 
-            for (const cellResult of rowResult.cells) {
-              newCells[cellResult.colId] = cellResult.value;
-            }
-
-            rowsMap.set(rowResult.rowId, {
-              ...currentRow,
-              cells: newCells,
-              durations: rowResult.durations ?? currentRow.durations
-            });
+          for (const cellResult of rowResult.cells) {
+            newCells[cellResult.colId] = cellResult.value;
           }
 
-          updateLastEdited();
-          cleanupApplyPlan();
-          uiOpen = false;
-          figma.closePlugin();
-          resolve();
-        });
-      }, 0);
+          rowsMap.set(rowResult.rowId, {
+            ...currentRow,
+            cells: newCells,
+            durations: rowResult.durations ?? currentRow.durations
+          });
+        }
+
+        updateLastEdited();
+        cleanupApplyPlan();
+        uiOpen = false;
+        figma.closePlugin();
+        resolve();
+      });
     });
   };
 
@@ -585,8 +621,8 @@ function TimelineEstimator() {
     return (
       <AutoLayout onClick={() => handleCellClick(row.id, col)} verticalAlignItems="center" spacing={8} width="fill-parent">
         <AutoLayout spacing={-4}>
-          {assignees.map((name: string, i: number) => (
-            <AutoLayout key={i} width={16} height={16} cornerRadius={999} fill={getAvatarColor(name)} horizontalAlignItems="center" verticalAlignItems="center" stroke={theme.bg} strokeWidth={1}>
+          {assignees.map((name: string) => (
+            <AutoLayout key={name} width={16} height={16} cornerRadius={999} fill={getAvatarColor(name)} horizontalAlignItems="center" verticalAlignItems="center" stroke={theme.bg} strokeWidth={1}>
               <Text fill="#FFFFFF" fontSize={9} fontWeight="bold">{name.charAt(0).toUpperCase()}</Text>
             </AutoLayout>
           ))}
@@ -660,11 +696,19 @@ function TimelineEstimator() {
   return (
     <AutoLayout
       direction="vertical"
+      padding={8}
       fill={theme.bg}
       cornerRadius={12}
-      stroke={theme.border}
-      strokeWidth={1}
     >
+      {/* F3: Outer inert wrapper — 8px dead zone on all sides so users can
+          click the widget's perimeter to select/drag without triggering handlers. */}
+      <AutoLayout
+        direction="vertical"
+        fill={theme.bg}
+        cornerRadius={12}
+        stroke={theme.border}
+        strokeWidth={1}
+      >
       {/* Title Bar */}
       <AutoLayout
         width="fill-parent"
@@ -684,49 +728,46 @@ function TimelineEstimator() {
           fill={theme.headerFg}
           width={300}
         />
-        <AutoLayout verticalAlignItems="center" spacing={40}>
-          <Text fill={theme.subFg} fontSize={11}>Last edited: {lastEditedBy}</Text>
-          <AutoLayout verticalAlignItems="center" spacing={12}>
-            {(() => {
-              const hasRows = rows.length > 0;
-              const hasDaterangeCols = columns.some(c => c.type === 'daterange');
-              const planEnabled = hasRows && hasDaterangeCols;
-              const planTooltip = !hasRows
-                ? 'Add rows to start planning'
-                : !hasDaterangeCols
-                ? 'Add a date column to your template first'
-                : undefined;
-              return (
-                <AutoLayout
-                  padding={{ horizontal: 8, vertical: 4 }}
-                  hoverStyle={planEnabled ? { fill: theme.subBg } : undefined}
-                  cornerRadius={5}
-                  stroke="#FFFFFF1A"
-                  strokeWidth={1}
-                  verticalAlignItems="center"
-                  spacing={8}
-                  opacity={planEnabled ? 1 : 0.35}
-                  onClick={planEnabled ? handleOpenPlan : undefined}
-                  tooltip={planTooltip}
-                >
-                  <SVG src={getCalendarIcon(theme.cellFg)} />
-                  <Text fill={theme.cellFg} fontSize={11}>Make plan</Text>
-                </AutoLayout>
-              );
-            })()}
-            <AutoLayout
-              padding={{ horizontal: 8, vertical: 4 }}
-              hoverStyle={{ fill: theme.subBg }}
-              cornerRadius={5}
-              stroke="#FFFFFF1A"
-              strokeWidth={1}
-              verticalAlignItems="center"
-              spacing={8}
-              onClick={handleOpenSettings}
-            >
-              <SVG src={getSettingsIcon(theme.cellFg)} />
-              <Text fill={theme.cellFg} fontSize={11}>Settings</Text>
-            </AutoLayout>
+        <AutoLayout verticalAlignItems="center" spacing={12}>
+          {(() => {
+            const hasRows = rows.length > 0;
+            const hasDaterangeCols = columns.some(c => c.type === 'daterange');
+            const planEnabled = hasRows && hasDaterangeCols;
+            const planTooltip = !hasRows
+              ? 'Add rows to start planning'
+              : !hasDaterangeCols
+              ? 'Add a date column to your template first'
+              : undefined;
+            return (
+              <AutoLayout
+                padding={{ horizontal: 8, vertical: 4 }}
+                hoverStyle={planEnabled ? { fill: theme.subBg } : undefined}
+                cornerRadius={5}
+                stroke="#FFFFFF1A"
+                strokeWidth={1}
+                verticalAlignItems="center"
+                spacing={8}
+                opacity={planEnabled ? 1 : 0.35}
+                onClick={planEnabled ? handleOpenPlan : undefined}
+                tooltip={planTooltip}
+              >
+                <SVG src={getCalendarIcon(theme.cellFg)} />
+                <Text fill={theme.cellFg} fontSize={11}>Make plan</Text>
+              </AutoLayout>
+            );
+          })()}
+          <AutoLayout
+            padding={{ horizontal: 8, vertical: 4 }}
+            hoverStyle={{ fill: theme.subBg }}
+            cornerRadius={5}
+            stroke="#FFFFFF1A"
+            strokeWidth={1}
+            verticalAlignItems="center"
+            spacing={8}
+            onClick={handleOpenSettings}
+          >
+            <SVG src={getSettingsIcon(theme.cellFg)} />
+            <Text fill={theme.cellFg} fontSize={11}>Settings</Text>
           </AutoLayout>
         </AutoLayout>
       </AutoLayout>
@@ -788,18 +829,22 @@ function TimelineEstimator() {
           <Text fill={theme.cellFg} fontSize={11}>Add row</Text>
         </AutoLayout>
 
-        <AutoLayout
-          padding={{ horizontal: 12, vertical: 6 }}
-          stroke={theme.border}
-          strokeWidth={1}
-          cornerRadius={5}
-          verticalAlignItems="center"
-          spacing={4}
-          onClick={handleCopyPlan}
-          hoverStyle={{ fill: theme.subBg }}
-        >
-          <Text fill={theme.cellFg} fontSize={11}>Copy plan</Text>
+        <AutoLayout verticalAlignItems="center" spacing={16}>
+          <Text fill={theme.subFg} fontSize={11}>Last edited: {lastEditedBy}</Text>
+          <AutoLayout
+            padding={{ horizontal: 12, vertical: 6 }}
+            stroke={theme.border}
+            strokeWidth={1}
+            cornerRadius={5}
+            verticalAlignItems="center"
+            spacing={4}
+            onClick={handleCopyPlan}
+            hoverStyle={{ fill: theme.subBg }}
+          >
+            <Text fill={theme.cellFg} fontSize={11}>Copy plan</Text>
+          </AutoLayout>
         </AutoLayout>
+      </AutoLayout>
       </AutoLayout>
     </AutoLayout>
   );

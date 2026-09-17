@@ -18,14 +18,21 @@
   },
   "figma-plugin": {
     "editorType": [
-      "figma"
+      "figma",
+      "figjam"
     ],
     "containsWidget": true,
+    "documentAccess": "dynamic-page",
     "id": "timeline-estimator-widget",
     "name": "Timeline Estimator Widget",
     "permissions": [
       "currentuser"
     ],
+    "networkAccess": {
+      "allowedDomains": [
+        "none"
+      ]
+    },
     "main": "src/main.tsx",
     "ui": "src/ui.tsx"
   }

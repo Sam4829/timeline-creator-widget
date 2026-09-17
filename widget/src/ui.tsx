@@ -109,10 +109,15 @@ function DatePicker({ rowId, colId, currentValue }: DatePickerData) {
 }
 
 function Settings({ initialColumns, rows: initialRows, roster: initialRoster, themeName: initialTheme }: { initialColumns: (ColumnData & { id: string })[], rows?: any[], roster: ({ id: string } & RosterMember)[], themeName: 'dark' | 'light' }) {
-  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(initialTheme);
+  // F10: currentTheme state removed — theme is now a native property-menu dropdown on the widget.
   const [tab, setTab] = useState<'roster' | 'templates' | 'rows' | 'structure'>('roster');
   const [localRoster, setLocalRoster] = useState(initialRoster);
   const [localColumns, setLocalColumns] = useState(initialColumns);
+  // F9: Local column name state — edits stay in the iframe until blur to avoid
+  // per-keystroke map mutations that re-render the widget on every multiplayer client.
+  const [localColNames, setLocalColNames] = useState<Record<string, string>>(
+    () => Object.fromEntries(initialColumns.map(c => [c.id, c.name]))
+  );
   const [localRows, setLocalRows] = useState(initialRows || []);
   const [newName, setNewName] = useState('');
   const [warningMsg, setWarningMsg] = useState('');
@@ -139,6 +144,8 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster, th
     const unsubRoster = on('update-roster' as any, (updated: any[]) => setLocalRoster(updated));
     const unsubCols = on('update-columns' as any, (updated: any[]) => {
       setLocalColumns(updated);
+      // F9: Keep local name state in sync with confirmed widget state.
+      setLocalColNames(Object.fromEntries(updated.map((c: any) => [c.id, c.name])));
       setWarningMsg('');
     });
     const unsubRows = on('update-rows' as any, (updated: any[]) => setLocalRows(updated));
@@ -395,10 +402,18 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster, th
                   {isFirst ? '' : '⣿'}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <input 
-                    type="text" 
-                    value={c.name} 
-                    onChange={e => emit('update-column', { id: c.id, updates: { name: (e.target as HTMLInputElement).value } })}
+                  <input
+                    type="text"
+                    value={localColNames[c.id] ?? c.name}
+                    onChange={e => {
+                      // F9: Update local state only — no widget emit per keystroke.
+                      const val = (e.target as HTMLInputElement).value;
+                      setLocalColNames(prev => ({ ...prev, [c.id]: val }));
+                    }}
+                    onBlur={e => {
+                      // F9: Emit to widget only on blur (commit).
+                      emit('update-column', { id: c.id, updates: { name: (e.target as HTMLInputElement).value } });
+                    }}
                     style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--figma-color-border)', borderRadius: '4px', background: 'var(--figma-color-bg-secondary)', color: 'var(--figma-color-text)', outline: 'none' }}
                   />
                 </div>
@@ -426,14 +441,7 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster, th
       {tab === 'templates' && (
         <div>
           <Text style={{ color: 'var(--figma-color-text-secondary, #666)', marginBottom: '16px', display: 'block' }}>Select a preset timeline structure. Warning: this replaces current data.</Text>
-          {/* Theme Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', padding: '8px 12px', background: 'var(--figma-color-bg-secondary)', borderRadius: '6px' }}>
-            <Text style={{ fontWeight: 'bold' }}>Theme</Text>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <Button secondary={currentTheme !== 'light'} onClick={() => { setCurrentTheme('light'); emit('update-theme', 'light'); }}>Light</Button>
-              <Button secondary={currentTheme !== 'dark'} onClick={() => { setCurrentTheme('dark'); emit('update-theme', 'dark'); }}>Dark</Button>
-            </div>
-          </div>
+          {/* F10: Theme toggle removed — theme is now the native property-menu dropdown. */}
           {confirmPending ? (
             <div style={{ padding: '12px', background: 'var(--figma-color-bg-secondary, #f5f5f5)', border: '1px solid var(--figma-color-border, #e0e0e0)', borderRadius: '6px' }}>
               <Text style={{ display: 'block', marginBottom: '12px', fontSize: '12px', color: 'var(--figma-color-text, #000)' }}>

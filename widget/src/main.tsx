@@ -74,18 +74,18 @@ let uiOpen = false;
 // ─── Theme Lookup Tables (module-level — created once, not per render) ────────
 
 // Maps theme name -> swatch hex shown in Figma's property toolbar.
-// Light-family swatches (#F0ECE3, #E4EDE3) are slightly deeper than their
-// canvas bg so they remain visible against Figma's near-white toolbar chrome.
+// Sand and Sage use distinctive tint representations (#E8DCB8, #C5D8C7) so they are
+// immediately recognizable and distinguishable from Light (#FFFFFF) in Figma's popup.
 // IMPORTANT: Record<ThemeName, string> enforces all keys at compile time.
 // If you add a new entry to ThemeTokens, TypeScript will error here until
 // you also add the corresponding swatch hex.
 const THEME_SWATCHES: Record<ThemeName, string> = {
   dark:     '#1E1E1E',
-  light:    '#F5F5F5',
-  slate:    '#181F28',
-  sand:     '#F0ECE3',
-  sage:     '#E4EDE3',
-  espresso: '#221C20',
+  light:    '#FFFFFF',
+  slate:    '#141B24',
+  sand:     '#E8DCB8',
+  sage:     '#C5D8C7',
+  espresso: '#1F181D',
 };
 
 // Reverse map: swatch hex -> theme name (used in color-selector onChange).
@@ -94,12 +94,12 @@ const THEME_SWATCHES: Record<ThemeName, string> = {
 // When adding a new theme, always update BOTH this map AND THEME_SWATCHES.
 // The `?? 'dark'` fallback in onChange handles any missing entry at runtime.
 const SWATCH_TO_THEME: Record<string, ThemeName> = {
+  '#141B24': 'slate',
   '#1E1E1E': 'dark',
-  '#F5F5F5': 'light',
-  '#181F28': 'slate',
-  '#F0ECE3': 'sand',
-  '#E4EDE3': 'sage',
-  '#221C20': 'espresso',
+  '#1F181D': 'espresso',
+  '#C5D8C7': 'sage',
+  '#E8DCB8': 'sand',
+  '#FFFFFF': 'light',
 };
 
 // Themes compatible with FigJam's white-only canvas (KB §4).
@@ -149,12 +149,12 @@ function TimelineEstimator() {
         propertyName: 'theme',
         tooltip: 'Widget theme',
         options: [
+          { option: '#141B24', tooltip: 'Matte Slate' },
           { option: '#1E1E1E', tooltip: 'Dark Charcoal' },
-          { option: '#F5F5F5', tooltip: 'Light Minimal' },
-          { option: '#181F28', tooltip: 'Matte Slate' },
-          { option: '#F0ECE3', tooltip: 'Matte Sand' },
-          { option: '#E4EDE3', tooltip: 'Matte Sage' },
-          { option: '#221C20', tooltip: 'Matte Espresso' },
+          { option: '#1F181D', tooltip: 'Matte Espresso' },
+          { option: '#C5D8C7', tooltip: 'Matte Sage' },
+          { option: '#E8DCB8', tooltip: 'Matte Sand' },
+          { option: '#FFFFFF', tooltip: 'Light Minimal' },
         ],
         selectedOption: THEME_SWATCHES[themeName] ?? '#1E1E1E',
       },
@@ -373,15 +373,53 @@ function TimelineEstimator() {
             { name: 'Assignee',            type: 'assignee',  order: 5 },
             { name: 'Status',              type: 'status',    order: 6 },
           ];
-        } else if (templateName === 'Dev Timeline') {
+        } else if (templateName === 'Product Design') {
           newCols = [
-            { name: 'Feature',    type: 'text',      order: 0, locked: true },
-            { name: 'Frontend',   type: 'daterange', order: 1 },
-            { name: 'Backend',    type: 'daterange', order: 2 },
-            { name: 'QA Testing', type: 'daterange', order: 3 },
-            { name: 'Deployment', type: 'daterange', order: 4 },
-            { name: 'Lead',       type: 'assignee',  order: 5 },
-            { name: 'Status',     type: 'status',    order: 6 },
+            { name: 'Task',          type: 'text',      order: 0, locked: true },
+            { name: 'Discovery',     type: 'daterange', order: 1 },
+            { name: 'Wireframes',    type: 'daterange', order: 2 },
+            { name: 'Visual Design', type: 'daterange', order: 3 },
+            { name: 'Prototyping',   type: 'daterange', order: 4 },
+            { name: 'Dev Handoff',   type: 'daterange', order: 5 },
+            { name: 'QA/Polish',     type: 'daterange', order: 6 },
+            { name: 'Assignee',      type: 'assignee',  order: 7 },
+            { name: 'Status',        type: 'status',    order: 8 },
+          ];
+        } else if (templateName === 'Brand/Marketing') {
+          newCols = [
+            { name: 'Task',                type: 'text',      order: 0, locked: true },
+            { name: 'Brief & Moodboard',   type: 'daterange', order: 1 },
+            { name: 'Concept Exploration', type: 'daterange', order: 2 },
+            { name: 'Refinement',          type: 'daterange', order: 3 },
+            { name: 'Asset Production',    type: 'daterange', order: 4 },
+            { name: 'Stakeholder Review',  type: 'daterange', order: 5 },
+            { name: 'Final Delivery',      type: 'daterange', order: 6 },
+            { name: 'Assignee',            type: 'assignee',  order: 7 },
+            { name: 'Status',              type: 'status',    order: 8 },
+          ];
+        } else if (templateName === 'UX Research') {
+          newCols = [
+            { name: 'Task',               type: 'text',      order: 0, locked: true },
+            { name: 'Research Plan',      type: 'daterange', order: 1 },
+            { name: 'Recruitment',        type: 'daterange', order: 2 },
+            { name: 'Sessions/Fieldwork', type: 'daterange', order: 3 },
+            { name: 'Synthesis',          type: 'daterange', order: 4 },
+            { name: 'Findings Report',    type: 'daterange', order: 5 },
+            { name: 'Readout',            type: 'daterange', order: 6 },
+            { name: 'Assignee',           type: 'assignee',  order: 7 },
+            { name: 'Status',             type: 'status',    order: 8 },
+          ];
+        } else if (templateName === 'Design Systems') {
+          newCols = [
+            { name: 'Task',                       type: 'text',      order: 0, locked: true },
+            { name: 'Audit',                      type: 'daterange', order: 1 },
+            { name: 'Token/Foundation Updates',   type: 'daterange', order: 2 },
+            { name: 'Component Build',            type: 'daterange', order: 3 },
+            { name: 'Documentation',              type: 'daterange', order: 4 },
+            { name: 'Cross-team Review',          type: 'daterange', order: 5 },
+            { name: 'Rollout',                    type: 'daterange', order: 6 },
+            { name: 'Assignee',                   type: 'assignee',  order: 7 },
+            { name: 'Status',                     type: 'status',    order: 8 },
           ];
         } else {
           // Blank
@@ -405,10 +443,21 @@ function TimelineEstimator() {
           newRows = [
             { order: 0, cells: { [textKey]: 'Sprint 1', ...(statusKey ? { [statusKey]: 'WIP' } : {}) } }
           ];
-        } else if (templateName === 'Dev Timeline') {
+        } else if (templateName === 'Product Design') {
           newRows = [
-            { order: 0, cells: { [textKey]: 'User Authentication', ...(statusKey ? { [statusKey]: 'Done' } : {}) } },
-            { order: 1, cells: { [textKey]: 'Dashboard',           ...(statusKey ? { [statusKey]: 'WIP'  } : {}) } },
+            { order: 0, cells: { [textKey]: 'Onboarding flow', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+          ];
+        } else if (templateName === 'Brand/Marketing') {
+          newRows = [
+            { order: 0, cells: { [textKey]: 'Campaign Launch', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+          ];
+        } else if (templateName === 'UX Research') {
+          newRows = [
+            { order: 0, cells: { [textKey]: 'Usability Study', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+          ];
+        } else if (templateName === 'Design Systems') {
+          newRows = [
+            { order: 0, cells: { [textKey]: 'Button Component', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
           ];
         }
 
@@ -792,7 +841,7 @@ function TimelineEstimator() {
                 padding={{ horizontal: 8, vertical: 4 }}
                 hoverStyle={planEnabled ? { fill: theme.subBg } : undefined}
                 cornerRadius={5}
-                stroke="#FFFFFF1A"
+                stroke={theme.border}
                 strokeWidth={1}
                 verticalAlignItems="center"
                 spacing={8}
@@ -800,7 +849,7 @@ function TimelineEstimator() {
                 onClick={planEnabled ? handleOpenPlan : undefined}
                 tooltip={planTooltip}
               >
-                <SVG src={getCalendarIcon(theme.cellFg)} />
+                <SVG src={getCalendarIcon(theme.accent)} />
                 <Text fill={theme.cellFg} fontSize={11}>Make plan</Text>
               </AutoLayout>
             );
@@ -809,13 +858,13 @@ function TimelineEstimator() {
             padding={{ horizontal: 8, vertical: 4 }}
             hoverStyle={{ fill: theme.subBg }}
             cornerRadius={5}
-            stroke="#FFFFFF1A"
+            stroke={theme.border}
             strokeWidth={1}
             verticalAlignItems="center"
             spacing={8}
             onClick={handleOpenSettings}
           >
-            <SVG src={getSettingsIcon(theme.cellFg)} />
+            <SVG src={getSettingsIcon(theme.accent)} />
             <Text fill={theme.cellFg} fontSize={11}>Settings</Text>
           </AutoLayout>
         </AutoLayout>
@@ -874,7 +923,7 @@ function TimelineEstimator() {
           onClick={handleAddRow}
           hoverStyle={{ fill: theme.subBg }}
         >
-          <SVG src={getPlusIcon(theme.cellFg)} />
+          <SVG src={getPlusIcon(theme.accent)} />
           <Text fill={theme.cellFg} fontSize={11}>Add row</Text>
         </AutoLayout>
 

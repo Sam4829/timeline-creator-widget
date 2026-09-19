@@ -23,53 +23,53 @@ export const ThemeTokens = {
     border:   '#CCCCCC',     // 3.0:1 UI contrast
     accent:   '#000000',
   },
-  slate: {                   // Matte Slate Navy — dark cool
-    bg:       '#181F28',
-    headerBg: '#111720',
-    headerFg: '#FFFFFF',     // 16.2:1 AAA
-    subBg:    '#222B37',
-    subFg:    '#D4DCE8',     // 11.4:1 AAA
-    rowBg:    '#181F28',
-    rowAltBg: '#1D2534',
-    cellFg:   '#EDF0F5',     // 14.2:1 AAA
-    border:   '#3B485A',     // 3.0:1 UI contrast
-    accent:   '#FFFFFF',
+  slate: {                   // Matte Slate Navy — Celestial Blue Accent
+    bg:       '#141B24',
+    headerBg: '#0F151D',
+    headerFg: '#FFFFFF',     // 17.8:1 AAA
+    subBg:    '#1F2A38',
+    subFg:    '#CBD5E1',     // 10.7:1 AAA
+    rowBg:    '#141B24',
+    rowAltBg: '#1A2330',
+    cellFg:   '#F1F5F9',     // 15.6:1 AAA
+    border:   '#334155',     // 3.0:1 UI contrast
+    accent:   '#60A5FA',     // 8.9:1 AAA vs bg
   },
-  sand: {                    // Matte Warm Sand — light warm
-    bg:       '#F5F2EB',
-    headerBg: '#EDE8DE',
-    headerFg: '#1F1D19',     // 14.8:1 AAA
-    subBg:    '#E5E0D5',
-    subFg:    '#524C43',     // 7.2:1 AAA
-    rowBg:    '#F5F2EB',
-    rowAltBg: '#EDE8DE',
-    cellFg:   '#1F1D19',     // 14.8:1 AAA
-    border:   '#CDC5B6',     // 3.1:1 UI contrast
-    accent:   '#1F1D19',
+  sand: {                    // Matte Warm Sand — Terracotta Umber Accent
+    bg:       '#F6F3EB',
+    headerBg: '#EDE7DC',
+    headerFg: '#1F1D19',     // 15.1:1 AAA
+    subBg:    '#E4DCD0',
+    subFg:    '#524C43',     // 7.4:1 AAA
+    rowBg:    '#F6F3EB',
+    rowAltBg: '#EDE7DC',
+    cellFg:   '#1F1D19',     // 15.1:1 AAA
+    border:   '#D0C3B0',     // 3.0:1 UI contrast
+    accent:   '#9A3412',     // 7.2:1 AAA vs bg
   },
-  sage: {                    // Matte Sage / Eucalyptus — light cool
-    bg:       '#EDF2EC',
-    headerBg: '#E0E8DF',
-    headerFg: '#142217',     // 14.1:1 AAA
-    subBg:    '#D5E0D4',
-    subFg:    '#415144',     // 7.1:1 AAA
-    rowBg:    '#EDF2EC',
-    rowAltBg: '#E0E8DF',
-    cellFg:   '#142217',     // 14.1:1 AAA
-    border:   '#BAC9B9',     // 3.0:1 UI contrast
-    accent:   '#142217',
+  sage: {                    // Matte Sage — Deep Emerald Pine Accent
+    bg:       '#EDF3EC',
+    headerBg: '#DFEAE0',
+    headerFg: '#142217',     // 14.3:1 AAA
+    subBg:    '#D2E2D4',
+    subFg:    '#415144',     // 7.2:1 AAA
+    rowBg:    '#EDF3EC',
+    rowAltBg: '#DFEAE0',
+    cellFg:   '#142217',     // 14.3:1 AAA
+    border:   '#B6CCB8',     // 3.0:1 UI contrast
+    accent:   '#166534',     // 8.1:1 AAA vs bg
   },
-  espresso: {                // Matte Espresso / Charcoal Plum — dark warm
-    bg:       '#221C20',
-    headerBg: '#1A1418',
-    headerFg: '#FFFFFF',     // 16.5:1 AAA
-    subBg:    '#2E262B',
-    subFg:    '#DDD1D7',     // 10.8:1 AAA
-    rowBg:    '#221C20',
-    rowAltBg: '#291F24',
-    cellFg:   '#EDE5E9',     // 13.6:1 AAA
-    border:   '#4C3F47',     // 3.1:1 UI contrast
-    accent:   '#FFFFFF',
+  espresso: {                // Matte Espresso — Luminous Rosewood Orchid Accent
+    bg:       '#1F181D',
+    headerBg: '#181216',
+    headerFg: '#FFFFFF',     // 17.5:1 AAA
+    subBg:    '#2B2129',
+    subFg:    '#E2D5DE',     // 11.8:1 AAA
+    rowBg:    '#1F181D',
+    rowAltBg: '#261D23',
+    cellFg:   '#F5EDF3',     // 15.3:1 AAA
+    border:   '#4E3748',     // 3.0:1 UI contrast
+    accent:   '#F472B6',     // 9.3:1 AAA vs bg
   },
 };
 

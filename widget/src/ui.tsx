@@ -457,7 +457,10 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster, th
               <Button secondary fullWidth onClick={() => handleApplyTemplate('Blank')}>Blank</Button>
               <Button secondary fullWidth onClick={() => handleApplyTemplate('Polaris D&E')}>Polaris D&E</Button>
               <Button secondary fullWidth onClick={() => handleApplyTemplate('Design Sprint')}>Design Sprint</Button>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('Dev Timeline')}>Dev Timeline</Button>
+              <Button secondary fullWidth onClick={() => handleApplyTemplate('Product Design')}>Product Design</Button>
+              <Button secondary fullWidth onClick={() => handleApplyTemplate('Brand/Marketing')}>Brand/Marketing</Button>
+              <Button secondary fullWidth onClick={() => handleApplyTemplate('UX Research')}>UX Research</Button>
+              <Button secondary fullWidth onClick={() => handleApplyTemplate('Design Systems')}>Design Systems</Button>
             </div>
           )}
         </div>

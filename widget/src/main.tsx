@@ -5,6 +5,7 @@
 import { showUI, on, once, emit } from '@create-figma-plugin/utilities';
 import { ColumnData, RowData, RosterMember, CellValue } from './types';
 import { ThemeTokens, StatusTokens, FIXED_STATUSES } from './theme';
+import type { ThemeName } from './theme';
 
 const { widget } = figma;
 const {
@@ -70,16 +71,58 @@ export default function () {
 // Module-level because it persists across widget re-renders.
 let uiOpen = false;
 
+// ─── Theme Lookup Tables (module-level — created once, not per render) ────────
+
+// Maps theme name -> swatch hex shown in Figma's property toolbar.
+// Light-family swatches (#F0ECE3, #E4EDE3) are slightly deeper than their
+// canvas bg so they remain visible against Figma's near-white toolbar chrome.
+// IMPORTANT: Record<ThemeName, string> enforces all keys at compile time.
+// If you add a new entry to ThemeTokens, TypeScript will error here until
+// you also add the corresponding swatch hex.
+const THEME_SWATCHES: Record<ThemeName, string> = {
+  dark:     '#1E1E1E',
+  light:    '#F5F5F5',
+  slate:    '#181F28',
+  sand:     '#F0ECE3',
+  sage:     '#E4EDE3',
+  espresso: '#221C20',
+};
+
+// Reverse map: swatch hex -> theme name (used in color-selector onChange).
+// NOTE: This map is NOT compile-time exhaustiveness-checked — TypeScript cannot
+// verify that every value in THEME_SWATCHES has a corresponding entry here.
+// When adding a new theme, always update BOTH this map AND THEME_SWATCHES.
+// The `?? 'dark'` fallback in onChange handles any missing entry at runtime.
+const SWATCH_TO_THEME: Record<string, ThemeName> = {
+  '#1E1E1E': 'dark',
+  '#F5F5F5': 'light',
+  '#181F28': 'slate',
+  '#F0ECE3': 'sand',
+  '#E4EDE3': 'sage',
+  '#221C20': 'espresso',
+};
+
+// Themes compatible with FigJam's white-only canvas (KB §4).
+// Dark-family themes (dark, slate, espresso) are not in this set and will
+// be redirected to 'light' when the widget is opened in FigJam.
+// NOTE: The Settings iframe remains dark-styled on all themes — this is
+// intentional; the iframe does not inherit canvas theme (KB §13).
+const FIGJAM_SAFE_THEMES = new Set<ThemeName>(['light', 'sand', 'sage']);
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 function TimelineEstimator() {
   const [projectName, setProjectName] = useSyncedState('projectName', 'New Project');
-  const [themeName, setThemeName] = useSyncedState<'dark' | 'light'>('theme', 'dark');
+  const [themeName, setThemeName] = useSyncedState<ThemeName>('theme', 'dark');
   const [lastEditedBy, setLastEditedBy] = useSyncedState('lastEditedBy', 'You');
 
   const rosterMap = useSyncedMap<RosterMember>('roster');
   const columnsMap = useSyncedMap<ColumnData>('columns');
   const rowsMap = useSyncedMap<RowData>('rows');
 
-  const theme = ThemeTokens[themeName as keyof typeof ThemeTokens];
+  // `themeName` is already typed as ThemeName (= keyof typeof ThemeTokens),
+  // so no cast is needed. Fallback to dark if stored value is ever unexpected.
+  const theme = ThemeTokens[themeName] ?? ThemeTokens.dark;
 
   const getCurrentUserName = (): string => {
     try {
@@ -96,24 +139,30 @@ function TimelineEstimator() {
     }
   };
 
-  // F10: Native property-menu dropdown for theme switching.
-  // Surfaces in the selection toolbar — no custom chrome needed in the iframe.
+  // Native color-selector swatch for theme switching.
+  // Renders as a circular color dot in Figma's selection toolbar.
+  // Clicking opens a 2-swatch palette with "Dark" and "Light" tooltips.
   usePropertyMenu(
     [
       {
-        itemType: 'dropdown',
+        itemType: 'color-selector',
         propertyName: 'theme',
         tooltip: 'Widget theme',
         options: [
-          { option: 'dark',  label: 'Dark'  },
-          { option: 'light', label: 'Light' },
+          { option: '#1E1E1E', tooltip: 'Dark Charcoal' },
+          { option: '#F5F5F5', tooltip: 'Light Minimal' },
+          { option: '#181F28', tooltip: 'Matte Slate' },
+          { option: '#F0ECE3', tooltip: 'Matte Sand' },
+          { option: '#E4EDE3', tooltip: 'Matte Sage' },
+          { option: '#221C20', tooltip: 'Matte Espresso' },
         ],
-        selectedOption: themeName,
+        selectedOption: THEME_SWATCHES[themeName] ?? '#1E1E1E',
       },
     ],
     ({ propertyName, propertyValue }) => {
-      if (propertyName === 'theme') {
-        setThemeName(propertyValue as 'dark' | 'light');
+      if (propertyName === 'theme' && propertyValue) {
+        const nextTheme = SWATCH_TO_THEME[propertyValue.toUpperCase()] ?? 'dark';
+        setThemeName(nextTheme);
         updateLastEdited();
       }
     }
@@ -122,7 +171,7 @@ function TimelineEstimator() {
   // F8: FigJam is a light-only environment — force light theme on first render
   // if the widget was previously in dark mode. The editorType check acts as the guard.
   useEffect(() => {
-    if (figma.editorType === 'figjam' && themeName !== 'light') {
+    if (figma.editorType === 'figjam' && !FIGJAM_SAFE_THEMES.has(themeName)) {
       setThemeName('light');
     }
   });

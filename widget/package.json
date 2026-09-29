@@ -1,4 +1,7 @@
 {
+  "name": "timeline-estimator-widget",
+  "version": "1.0.0",
+  "license": "MIT",
   "dependencies": {
     "@create-figma-plugin/ui": "^4.0.3",
     "@create-figma-plugin/utilities": "^4.0.3",

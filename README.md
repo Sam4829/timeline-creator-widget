@@ -163,4 +163,4 @@ Both packages can be published to the Figma Community store:
 
 ## 📄 License
 
-Internal / Proprietary design tool created for team workflow efficiency.
+This project is open source and available under the [MIT License](LICENSE).

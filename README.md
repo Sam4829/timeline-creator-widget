@@ -17,7 +17,7 @@ This repository contains two distinct complementary implementations:
 | **Output Type** | Native Figma Auto Layout Frames & Text Nodes | Live Interactive Widget Component |
 | **Date Tracking** | Native UI Date Picker | Date Range Picker + **Change History Audit Trail** |
 | **Assignee Management** | Text Column | Interactive Roster & Multi-Assignee Dropdown |
-| **Templates Included** | Polaris D&E, Design Sprint, Dev Timeline | Custom Column & Row configurations |
+| **Templates Included** | Polaris D&E, Design Sprint, Dev Timeline | Design & Experience, Design Sprint, Product Design, Brand/Marketing, Blank |
 | **Theme Support** | Dark & Light Modes | Modern Dark / Light Design System |
 
 ---
@@ -38,13 +38,15 @@ timeline-estimator-plugin/
 ├── widget/                       # FigJam / Figma Widget package
 │   ├── src/
 │   │   ├── main.tsx              # Widget canvas component rendering & logic
-│   │   ├── ui.tsx                # Date picker, dropdown, and settings iframe UI
+│   │   ├── ui.tsx                # Date picker, dropdown, settings, & plan iframe UI
 │   │   ├── theme.ts              # Widget design system and status badges tokens
-│   │   └── types.ts              # Widget data types (DateHistoryEntry, Roster, etc.)
+│   │   └── types.ts              # Widget data types (RowData, PlanRowResult, Roster, etc.)
+│   ├── Linear_Design.md          # Design system & token reference specifications
 │   ├── package.json              # Widget dependencies & build config
 │   └── README.md                 # Widget specific guide
 │
 ├── .gitignore                    # Root gitignore rules
+├── MEMORY.md                     # Architecture context & decision records
 └── README.md                     # Root project documentation (this file)
 ```
 
@@ -129,12 +131,14 @@ npm run watch
 5. Insert the widget onto your canvas.
 
 ### Core Widget Features
-- **Date Range Audit History**: Track changes to start/end dates, complete with timestamps, user names, and optional change reasons.
-- **Team Roster & Assignees**: Manage project team members and select single or multiple assignees per row with dynamic avatar colors.
-- **Custom Status Badges**: Select and render status tags dynamically on canvas.
+- **Plan Timeline Calculation Engine**: Automated business-day scheduling engine with custom starting dates, 0.5+ day durations, row-to-row dependency chaining, and weekend roll-forward. Durations and start dates are persistently saved and restored on re-opening.
+- **Contextual Popovers**: Clean popovers for Status, Assignee, and Date Range clearly showing the task name (or row number) and column name header.
+- **Symmetric Date Range & Single Day Prefilling**: Intelligent parsing that handles both single date values (prefilled into start & end pickers) and full ISO date ranges (`YYYY-MM-DD – YYYY-MM-DD`).
+- **Team Roster & Assignees**: Manage project team members with custom avatar colors and assign single or multiple assignees per row.
+- **Custom Status Badges**: Select and render status tags dynamically on canvas with high-contrast theme-aware styling.
 - **Light & Dark Theme Toggle**: Switch instantly between Light and Dark themes directly within the Settings menu.
+- **Settings & Row Management**: Manage templates (Design & Experience, Design Sprint, Product Design, Brand/Marketing, Blank) and reorder/delete rows with inline confirmation.
 - **Copy Plan Exporter**: Copy full timeline data to clipboard as formatted TSV for pasting directly into Excel, Google Sheets, or docs.
-- **On-Canvas Controls**: Add/remove rows and columns, reorder items, and customize table settings directly from the canvas interface.
 
 ---
 

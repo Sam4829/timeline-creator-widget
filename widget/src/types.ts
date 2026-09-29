@@ -17,6 +17,7 @@ export interface RowData {
   durations?: {
     [columnId: string]: string;
   };
+  startDate?: string;
 }
 
 export interface RosterMember {
@@ -38,17 +39,22 @@ export interface PlanRowResult {
   durations?: {
     [columnId: string]: string;
   };
+  startDate?: string;
 }
 
 export interface DatePickerData {
   rowId: string;
   colId: string;
+  colName: string;
+  rowIdentifier: string;
   currentValue: string;
 }
 
 export interface DropdownData {
   rowId: string;
   colId: string;
+  colName: string;
+  rowIdentifier: string;
   type: 'status' | 'assignee';
   options: string[];
   currentValue: string | string[];

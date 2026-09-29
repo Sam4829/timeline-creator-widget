@@ -14,7 +14,8 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 - **Plan Feature**: Standalone flow from widget title bar. Business-day date calculation engine with cursor + accumulator logic, 0.5+ day durations, row-to-row chaining, weekend roll-forward, inline confirmation before overwriting, disabled states with tooltips.
 - **Removed Cell-Based History/Revision System**: Simplified daterange cells to plain ISO strings (`"YYYY-MM-DD"` or `"YYYY-MM-DD - YYYY-MM-DD"`).
 - **Shared `buildISODateRange` helper** in `ui.tsx`.
-- **Remember Plan Timeline Durations**: `durations` persisted to `rowsMap` per row, restored on Plan popup reopen via `rowResult.durations ?? currentRow.durations` fallback.
+- **Remember Plan Timeline Durations & Start Dates**: `durations` and `startDate` persisted to `rowsMap` per row, restored on Plan popup reopen (with Row 1 fallback to first cell date).
+- **DatePicker Single & Range Prefilling**: Extracted symmetric `parseISODateRange` and `extractStartDate` helpers in `ui.tsx` ensuring single dates prefill both pickers (1-day range) and ranges split cleanly.
 - **Rows Tab in Settings**: Full row management (add, remove, drag-to-reorder) inside the Settings popup. Extracted shared `getRowLabel()` helper used by both Settings Rows tab and PlanPopup. Two-step inline delete confirmation (no `window.confirm()`). Fixed `TS17016` by importing `Fragment` from `preact`.
 - **Debug logging**: `console.log('Settings closed')` added to `close-settings` handler in `main.tsx` for diagnostics.
 - **Theme Toggle in Settings**: Light & Dark mode toggle in Settings (Templates tab), updating `themeName` across all canvas widget clients instantly via `useSyncedState`.

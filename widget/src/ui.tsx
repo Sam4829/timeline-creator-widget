@@ -65,19 +65,34 @@ function buildISODateRange(startDate: string, endDate: string): string {
   return '';
 }
 
-function DatePicker({ rowId, colId, currentValue }: DatePickerData) {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+// Symmetric inverse of buildISODateRange.
+// ' – ' is the ONLY separator buildISODateRange ever writes, so we split on exactly that.
+function parseISODateRange(value: string): [string, string] {
+  if (!value) return ['', ''];
+  const SEP = ' \u2013 '; // exact separator used by buildISODateRange
+  const idx = value.indexOf(SEP);
+  if (idx !== -1) {
+    return [value.slice(0, idx), value.slice(idx + SEP.length)];
+  }
+  // Single date — prefill both fields with the same value.
+  return [value.trim(), value.trim()];
+}
 
-  const parts = currentValue && currentValue.includes('\u2013')
-    ? currentValue.split(' \u2013 ')
-    : ['', ''];
-  const [initialStart, initialEnd] = parts;
+// Returns the start portion of a stored cell value, or '' if it's not a valid ISO date.
+function extractStartDate(value: string): string {
+  const [start] = parseISODateRange(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : '';
+}
+
+function DatePicker({ rowId, colId, colName, rowIdentifier, currentValue }: DatePickerData) {
+  const [initialStart, initialEnd] = parseISODateRange(currentValue);
+  const [startDate, setStartDate] = useState(initialStart);
+  const [endDate, setEndDate] = useState(initialEnd);
 
   useEffect(() => {
     if (initialStart) setStartDate(initialStart);
     if (initialEnd) setEndDate(initialEnd);
-  }, []);
+  }, [currentValue]);
 
   const handleSubmit = () => {
     const value = buildISODateRange(startDate, endDate);
@@ -94,7 +109,13 @@ function DatePicker({ rowId, colId, currentValue }: DatePickerData) {
   return (
     <Container space="medium">
       <VerticalSpace space="small" />
-      <Text>Date Range</Text>
+      <Text style={{ fontWeight: 600, fontSize: '13px' }}>
+        {rowIdentifier} - {colName}
+      </Text>
+      <hr style={{ border: 'none', borderTop: '1px solid var(--figma-color-border, #383838)', margin: '8px 0' }} />
+      <Text style={{ color: 'var(--figma-color-text-secondary, rgba(255, 255, 255, 0.6))', fontSize: '11px' }}>
+        Date Range:
+      </Text>
       <VerticalSpace space="small" />
       <Columns space="small">
         <input type="date" value={startDate} onChange={e => setStartDate((e.target as HTMLInputElement).value)} style={{ width: '100%', padding: '4px' }} />
@@ -455,7 +476,7 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster, th
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <Button secondary fullWidth onClick={() => handleApplyTemplate('Blank')}>Blank</Button>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('Polaris D&E')}>Polaris D&E</Button>
+              <Button secondary fullWidth onClick={() => handleApplyTemplate('Design & Experience')}>Design & Experience</Button>
               <Button secondary fullWidth onClick={() => handleApplyTemplate('Design Sprint')}>Design Sprint</Button>
               <Button secondary fullWidth onClick={() => handleApplyTemplate('Product Design')}>Product Design</Button>
               <Button secondary fullWidth onClick={() => handleApplyTemplate('Brand/Marketing')}>Brand/Marketing</Button>
@@ -472,7 +493,7 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster, th
   );
 }
 
-function CellDropdown({ rowId, colId, type, options, currentValue }: DropdownData) {
+function CellDropdown({ rowId, colId, colName, rowIdentifier, type, options, currentValue }: DropdownData) {
   // Normalize currentValue to array for assignees, keep as string for status
   const [selected, setSelected] = useState<string[]>(
     type === 'assignee' 
@@ -498,7 +519,13 @@ function CellDropdown({ rowId, colId, type, options, currentValue }: DropdownDat
   return (
     <Container space="small">
       <VerticalSpace space="small" />
-      <Text>Select {type}</Text>
+      <Text style={{ fontWeight: 600, fontSize: '13px' }}>
+        {rowIdentifier} - {colName}
+      </Text>
+      <hr style={{ border: 'none', borderTop: '1px solid var(--figma-color-border, #383838)', margin: '8px 0' }} />
+      <Text style={{ color: 'var(--figma-color-text-secondary, rgba(255, 255, 255, 0.6))', fontSize: '11px' }}>
+        {type === 'assignee' ? 'Assignee:' : 'Status:'}
+      </Text>
       <VerticalSpace space="small" />
       {options.length === 0 ? (
         <Text style={{ color: 'var(--figma-color-text-secondary, #666)' }}>No members available. Add them in Settings.</Text>
@@ -677,7 +704,16 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
       const label = getRowLabel(row, columns, idx);
       const durations: { [colId: string]: string } = {};
       daterangeCols.forEach((c: any) => { durations[c.id] = row.durations?.[c.id] ?? '1'; });
-      return { rowId: row.id, label, startDate: '', durations };
+
+      let initialStart = row.startDate ?? '';
+      if (!initialStart && idx === 0 && daterangeCols.length > 0) {
+        const firstCellVal = row.cells?.[daterangeCols[0].id];
+        if (typeof firstCellVal === 'string') {
+          initialStart = extractStartDate(firstCellVal);
+        }
+      }
+
+      return { rowId: row.id, label, startDate: initialStart, durations };
     })
   );
 
@@ -711,7 +747,7 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
         cursor = new Date(prevRowEndForChaining);
       } else {
         // Row 1 with no start date — skip (should be blocked by UI)
-        results.push({ rowId: pr.rowId, cells: [], durations: pr.durations });
+        results.push({ rowId: pr.rowId, cells: [], durations: pr.durations, startDate: pr.startDate });
         continue;
       }
 
@@ -764,7 +800,7 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
         prevRowEndForChaining = new Date(cursor);
       }
 
-      results.push({ rowId: pr.rowId, cells, durations: pr.durations });
+      results.push({ rowId: pr.rowId, cells, durations: pr.durations, startDate: pr.startDate });
     }
 
     return results;

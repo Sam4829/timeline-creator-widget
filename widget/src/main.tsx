@@ -240,7 +240,47 @@ function TimelineEstimator() {
       });
 
       const cleanupRemove = on('remove-roster-name' as any, (id: string) => {
+        const deletedMember = rosterMap.get(id);
+        const deletedName = deletedMember?.name;
         rosterMap.delete(id);
+
+        if (deletedName) {
+          const assigneeCols = columnsMap
+            .keys()
+            .filter(k => columnsMap.get(k)?.type === 'assignee');
+
+          let anyRowChanged = false;
+          rowsMap.keys().forEach(rk => {
+            const row = rowsMap.get(rk);
+            if (!row) return;
+
+            let changed = false;
+            const newCells = { ...row.cells };
+
+            assigneeCols.forEach(colId => {
+              const cell = newCells[colId];
+              if (Array.isArray(cell) && cell.includes(deletedName)) {
+                newCells[colId] = cell.filter(n => n !== deletedName);
+                changed = true;
+              } else if (typeof cell === 'string' && cell === deletedName) {
+                newCells[colId] = [];
+                changed = true;
+              }
+            });
+
+            if (changed) {
+              rowsMap.set(rk, { ...row, cells: newCells });
+              anyRowChanged = true;
+            }
+          });
+
+          if (anyRowChanged) {
+            const updatedRows = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+            emit('update-rows' as any, updatedRows);
+            updateLastEdited();
+          }
+        }
+
         emit('update-roster' as any, getRosterSnapshot());
       });
 
@@ -347,7 +387,7 @@ function TimelineEstimator() {
       const cleanupApplyTemplate = on('apply-template' as any, (templateName: string) => {
         let newCols: ColumnData[] = [];
 
-        if (templateName === 'Polaris D&E') {
+        if (templateName === 'Design & Experience') {
           newCols = [
             { name: 'Task / Screen',          type: 'text',      order: 0,  locked: true },
             { name: 'Screenshot mapping',     type: 'daterange', order: 1  },
@@ -435,7 +475,7 @@ function TimelineEstimator() {
         type SeedCells = Record<string, string>;
         let newRows: Array<{ order: number; cells: SeedCells }> = [];
 
-        if (templateName === 'Polaris D&E') {
+        if (templateName === 'Design & Experience') {
           newRows = [
             { order: 0, cells: { [textKey]: 'Onboarding flow', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
           ];
@@ -502,7 +542,8 @@ function TimelineEstimator() {
         id: r.id,
         order: r.order,
         cells: r.cells,
-        durations: r.durations
+        durations: r.durations,
+        startDate: r.startDate
       }));
 
       showUI({ width: 466, height: 540, title: 'Plan Timeline' }, { type: 'plan', rows: rowsData, columns: colsData });
@@ -523,7 +564,8 @@ function TimelineEstimator() {
           rowsMap.set(rowResult.rowId, {
             ...currentRow,
             cells: newCells,
-            durations: rowResult.durations ?? currentRow.durations
+            durations: rowResult.durations ?? currentRow.durations,
+            startDate: rowResult.startDate !== undefined ? rowResult.startDate : currentRow.startDate
           });
         }
 
@@ -536,7 +578,7 @@ function TimelineEstimator() {
     });
   };
 
-  const handleCellClick = (rowId: string, col: ColumnData & { id: string }) => {
+  const handleCellClick = (rowId: string, col: ColumnData & { id: string }, rowIndex: number) => {
     if (uiOpen) return new Promise<void>(r => r()); // Prevent stacking
     uiOpen = true;
 
@@ -548,6 +590,13 @@ function TimelineEstimator() {
         return;
       }
       const cellValue = row.cells[col.id];
+
+      const rowNumber = rowIndex + 1;
+      const textCol = columns.find(c => c.type === 'text');
+      const taskName = textCol && typeof row.cells[textCol.id] === 'string'
+        ? (row.cells[textCol.id] as string).trim()
+        : '';
+      const rowIdentifier = taskName || `Row ${rowNumber}`;
 
       if (col.type === 'daterange') {
         const cleanup = once('submit-date' as any, (msgData: any) => {
@@ -565,11 +614,13 @@ function TimelineEstimator() {
           resolve();
         });
 
-        showUI({ width: 320, height: 280, title: 'Set Date Range' }, {
+        showUI({ width: 320, height: 290, title: `Set Date Range - ${col.name}` }, {
           type: 'date-picker',
           data: {
             rowId,
             colId: col.id,
+            colName: col.name,
+            rowIdentifier,
             currentValue: (cellValue as string) || ''
           }
         });
@@ -591,10 +642,16 @@ function TimelineEstimator() {
           resolve();
         });
 
-        showUI({ width: 200, height: 240, title: 'Set Status' }, {
+        showUI({ width: 240, height: 260, title: `Set Status - ${col.name}` }, {
           type: 'dropdown',
           data: {
-            rowId, colId: col.id, type: 'status', options: FIXED_STATUSES, currentValue: cellValue as string
+            rowId,
+            colId: col.id,
+            colName: col.name,
+            rowIdentifier,
+            type: 'status',
+            options: FIXED_STATUSES,
+            currentValue: cellValue as string
           }
         });
         figma.ui.postMessage({ type: 'request-focus' });
@@ -616,10 +673,16 @@ function TimelineEstimator() {
         });
 
         const names = rosterMap.keys().map(k => rosterMap.get(k)!.name);
-        showUI({ width: 200, height: 280, title: 'Set Assignee' }, {
+        showUI({ width: 240, height: 300, title: `Set Assignee - ${col.name}` }, {
           type: 'dropdown',
           data: {
-            rowId, colId: col.id, type: 'assignee', options: names, currentValue: cellValue as string | string[]
+            rowId,
+            colId: col.id,
+            colName: col.name,
+            rowIdentifier,
+            type: 'assignee',
+            options: names,
+            currentValue: cellValue as string | string[]
           }
         });
         figma.ui.postMessage({ type: 'request-focus' });
@@ -640,13 +703,15 @@ function TimelineEstimator() {
     return (StatusTokens as any)[status] || { bg: theme.subBg, fg: theme.cellFg };
   };
 
-  const renderCell = (row: RowData & { id: string }, col: ColumnData & { id: string }, rowIndex: number) => {
+  const renderCell = (row: RowData & { id: string }, col: ColumnData & { id: string }, rowIndex: number, colIndex: number) => {
     const cellValue = row.cells[col.id];
 
     if (col.type === 'text') {
       return (
         <AutoLayout width="fill-parent" verticalAlignItems="center" spacing={8}>
-          <Text fill={theme.subFg} fontSize={11} width={20}>{rowIndex + 1}.</Text>
+          {colIndex === 0 && (
+            <Text fill={theme.subFg} fontSize={11} width={20}>{rowIndex + 1}.</Text>
+          )}
           <AutoLayout width="fill-parent" verticalAlignItems="center" spacing={4}>
             <Input
               value={(cellValue as string) || ''}
@@ -670,7 +735,7 @@ function TimelineEstimator() {
     if (col.type === 'status') {
       const val = cellValue as string;
       if (!val) {
-        return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col)}>Select...</Text>;
+        return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col, rowIndex)}>Select...</Text>;
       }
       const token = getStatusToken(val);
       return (
@@ -678,7 +743,7 @@ function TimelineEstimator() {
           fill={token.bg}
           padding={{ horizontal: 10, vertical: 4 }}
           cornerRadius={12}
-          onClick={() => handleCellClick(row.id, col)}
+          onClick={() => handleCellClick(row.id, col, rowIndex)}
         >
           <Text fill={token.fg} fontSize={11} fontWeight="bold">{val}</Text>
         </AutoLayout>
@@ -688,11 +753,11 @@ function TimelineEstimator() {
     if (col.type === 'daterange') {
       const data = cellValue as string | null;
       if (!data) {
-        return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col)}>Set date...</Text>;
+        return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col, rowIndex)}>Set date...</Text>;
       }
 
       return (
-        <AutoLayout verticalAlignItems="center" spacing={4} onClick={() => handleCellClick(row.id, col)} width="fill-parent" horizontalAlignItems="start">
+        <AutoLayout verticalAlignItems="center" spacing={4} onClick={() => handleCellClick(row.id, col, rowIndex)} width="fill-parent" horizontalAlignItems="start">
           <Text fill={theme.cellFg} fontSize={11} width="fill-parent" horizontalAlignText="left">{formatFriendlyDate(data)}</Text>
         </AutoLayout>
       );
@@ -714,10 +779,10 @@ function TimelineEstimator() {
     const valStr = assignees.join(', ');
 
     if (!valStr) {
-      return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col)}>Select...</Text>;
+      return <Text fill={theme.subFg} fontSize={11} italic onClick={() => handleCellClick(row.id, col, rowIndex)}>Select...</Text>;
     }
     return (
-      <AutoLayout onClick={() => handleCellClick(row.id, col)} verticalAlignItems="center" spacing={8} width="fill-parent">
+      <AutoLayout onClick={() => handleCellClick(row.id, col, rowIndex)} verticalAlignItems="center" spacing={8} width="fill-parent">
         <AutoLayout spacing={-4}>
           {assignees.map((name: string) => (
             <AutoLayout key={name} width={16} height={16} cornerRadius={999} fill={getAvatarColor(name)} horizontalAlignItems="center" verticalAlignItems="center" stroke={theme.bg} strokeWidth={1}>
@@ -901,9 +966,9 @@ function TimelineEstimator() {
             padding={{ horizontal: 24, vertical: 16 }}
             spacing={48}
           >
-            {columns.map((col) => (
+            {columns.map((col, colIndex) => (
               <AutoLayout key={col.id} width={getColWidth(col)}>
-                {renderCell(row, col, index)}
+                {renderCell(row, col, index, colIndex)}
               </AutoLayout>
             ))}
           </AutoLayout>

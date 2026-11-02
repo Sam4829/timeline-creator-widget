@@ -28,7 +28,7 @@ import {
 } from './types'
 
 function Plugin() {
-  const [activeTab, setActiveTab] = useState<'Setup' | 'Structure' | 'Plan Details' | 'Preview'>('Setup')
+  const [activeTab, setActiveTab] = useState<'Setup' | 'Columns' | 'Plan Details' | 'Preview'>('Setup')
   const [projectName, setProjectName] = useState('Timeline Estimation')
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const [template, setTemplate] = useState('Blank')
@@ -274,8 +274,8 @@ function Plugin() {
         <div onClick={() => setActiveTab('Setup')} style={navItemStyle(activeTab === 'Setup')}>
           <span style={{ fontSize: '14px' }}>⚙️</span> Setup
         </div>
-        <div onClick={() => setActiveTab('Structure')} style={navItemStyle(activeTab === 'Structure')}>
-          <span style={{ fontSize: '14px' }}>📝</span> Structure ({columns.length})
+        <div onClick={() => setActiveTab('Columns')} style={navItemStyle(activeTab === 'Columns')}>
+          <span style={{ fontSize: '14px' }}>📝</span> Columns ({columns.length})
         </div>
         <div onClick={() => setActiveTab('Plan Details')} style={navItemStyle(activeTab === 'Plan Details')}>
           <span style={{ fontSize: '14px' }}>📋</span> Plan Details ({rows.length})
@@ -342,7 +342,7 @@ function Plugin() {
             </Fragment>
           )}
 
-          {activeTab === 'Structure' && (
+          {activeTab === 'Columns' && (
             <Fragment>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={{ color: 'var(--figma-color-text-secondary)' }}>Manage timeline columns.</Text>

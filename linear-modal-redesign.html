@@ -1,0 +1,3286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timeline Estimator — Linear Modal Redesign Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       Linear Design Tokens (from Linear_Design.md)
+       ========================================================================== */
+    :root {
+      /* Surfaces */
+      --color-void: #08090a;
+      --color-carbon: #0f1011;
+      --color-obsidian: #161718;
+      --color-slate: #23252a;
+
+      /* Borders & Hairlines */
+      --color-graphite: #23252a;
+      --color-smoke: #383b3f;
+      --color-border-subtle: rgba(255, 255, 255, 0.06);
+      --color-border-hover: rgba(255, 255, 255, 0.12);
+
+      /* Typography Colors */
+      --color-paper: #ffffff;
+      --color-bone: #e5e5e6;
+      --color-mist: #d0d6e0;
+      --color-fog: #8a8f98;
+      --color-ash: #62666d;
+
+      /* Accent & Semantic */
+      --color-acid-lime: #e4f222;
+      --color-pulse-green: #27a644;
+      --color-coral-red: #eb5757;
+      --color-signal-teal: #02b8cc;
+      --color-iris-violet: #6366f1;
+      --color-linear-blue: #5e6ad2;
+      --color-lavender: #8b5cf6;
+      --color-amber: #f59e0b;
+
+      /* Dynamic Primary Accent (Defaults to Linear Blue based on Linear Design System) */
+      --color-primary-accent: #5e6ad2;
+      --color-primary-accent-hover: #6c78e6;
+      --color-primary-accent-text: #ffffff;
+      --color-primary-accent-glow: rgba(94, 106, 210, 0.4);
+      --color-primary-accent-subtle: rgba(94, 106, 210, 0.12);
+      --color-primary-accent-border: rgba(94, 106, 210, 0.3);
+
+      /* Typography */
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Berkeley Mono', ui-monospace, SFMono-Regular, monospace;
+
+      /* Radii */
+      --radius-sm: 2px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-xl: 12px;
+      --radius-full: 9999px;
+
+      /* Shadows */
+      --shadow-modal: 0 28px 64px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+      --shadow-subtle: rgb(35, 37, 42) 0px 0px 0px 1px inset;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      background-color: #040506;
+      background-image: 
+        radial-gradient(ellipse at 50% 0%, rgba(10, 109, 194, 0.05) 0%, transparent 65%),
+        linear-gradient(180deg, #07080a 0%, #040506 100%);
+      color: var(--color-mist);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      transition: background 0.3s ease;
+    }
+
+    /* ─── Mode: Canvas Widget Match (from design.md) ─────────────────── */
+    body.theme-canvas-widget {
+      --color-void: #1E1E1E;
+      --color-carbon: #2C2C2C;
+      --color-obsidian: #1E1E1E;
+      --color-slate: #383838;
+      --color-graphite: #383838;
+      --color-smoke: #4A4A4A;
+      --color-paper: #FFFFFF;
+      --color-bone: #E8E8E8;
+      --color-mist: #E8E8E8;
+      --color-fog: #BEBEBE;
+      --color-ash: #888888;
+      --color-primary-accent: #0A6DC2;
+      --color-primary-accent-hover: #117FD6;
+      --color-primary-accent-text: #FFFFFF;
+      --color-primary-accent-glow: rgba(10, 109, 194, 0.4);
+      --color-primary-accent-subtle: rgba(10, 109, 194, 0.15);
+      --color-primary-accent-border: rgba(10, 109, 194, 0.35);
+      --radius-md: 5px;
+      --radius-lg: 8px;
+      --radius-xl: 12px;
+      background-color: #121212;
+      background-image: radial-gradient(ellipse at 50% 0%, rgba(10, 109, 194, 0.08) 0%, transparent 65%), linear-gradient(180deg, #181818 0%, #101010 100%);
+    }
+
+    /* ─── Top Presentation Navigation Bar ────────────────────────────── */
+    .top-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(8, 9, 10, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--color-graphite);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--color-primary-accent-subtle);
+      border: 1px solid var(--color-primary-accent-border);
+      color: var(--color-primary-accent);
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      transition: all 0.2s ease;
+    }
+
+    .brand-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-primary-accent);
+      box-shadow: 0 0 8px var(--color-primary-accent);
+      transition: all 0.2s ease;
+    }
+
+    .accent-palette-picker {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      padding: 3px 8px;
+      border-radius: var(--radius-md);
+    }
+
+    .accent-circle-btn {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-val);
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .accent-circle-btn:hover {
+      transform: scale(1.15);
+    }
+
+    .accent-circle-btn.active {
+      border-color: #ffffff;
+      box-shadow: 0 0 8px var(--accent-val);
+    }
+
+    .brand-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-paper);
+      letter-spacing: -0.015em;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--color-fog);
+    }
+
+    /* View Switcher Controls */
+    .view-switcher {
+      display: flex;
+      align-items: center;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .view-btn {
+      background: transparent;
+      border: none;
+      color: var(--color-fog);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 400;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .view-btn:hover {
+      color: var(--color-mist);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .view-btn.active {
+      background: var(--color-slate);
+      color: var(--color-paper);
+      font-weight: 500;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .compare-toggle-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--color-graphite);
+      color: var(--color-mist);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .compare-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--color-smoke);
+      color: var(--color-paper);
+    }
+
+    .compare-toggle-btn.active {
+      background: rgba(228, 242, 34, 0.12);
+      border-color: rgba(228, 242, 34, 0.3);
+      color: var(--color-acid-lime);
+      font-weight: 500;
+    }
+
+    .ghost-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-ash);
+      border: 1px solid var(--color-graphite);
+      border-radius: 4px;
+      padding: 2px 6px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* ─── Main Showcase Canvas ───────────────────────────────────────── */
+    .showcase-stage {
+      flex: 1;
+      padding: 36px 24px 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 32px;
+    }
+
+    /* Single Modal Focus Container */
+    .single-modal-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    /* Comparison Split Container */
+    .compare-split-wrap {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 36px;
+      width: 100%;
+      max-width: 1100px;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .compare-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .compare-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-fog);
+      letter-spacing: -0.01em;
+    }
+
+    .badge-original {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--color-graphite);
+      color: var(--color-ash);
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+
+    .badge-redesign {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: rgba(228, 242, 34, 0.12);
+      border: 1px solid rgba(228, 242, 34, 0.3);
+      color: var(--color-acid-lime);
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+
+    .original-screenshot-img {
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-modal);
+      border: 1px solid var(--color-graphite);
+      display: block;
+      max-height: 540px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    /* Gallery Grid for "All Modals" view */
+    .gallery-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 36px;
+      width: 100%;
+      max-width: 1400px;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .gallery-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .gallery-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-fog);
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .gallery-label .dimension-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-ash);
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    /* ─── Realistic Figma Modal Window Frame ─────────────────────────── */
+    .figma-modal-window {
+      background: var(--color-void);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-modal);
+      border: 1px solid var(--color-graphite);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s;
+    }
+
+    /* Window Header (Preserved Modal Frame) */
+    .figma-modal-header {
+      height: 42px;
+      background: var(--color-carbon);
+      border-bottom: 1px solid var(--color-graphite);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      user-select: none;
+    }
+
+    .figma-modal-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .figma-code-badge {
+      width: 20px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-mist);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    .figma-modal-title {
+      font-size: 13px;
+      font-weight: 510;
+      color: var(--color-paper);
+      letter-spacing: -0.012em;
+    }
+
+    .figma-close-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-fog);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: transparent;
+      border: none;
+    }
+
+    .figma-close-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--color-paper);
+    }
+
+    /* ─── Modal Inside (Linear Redesign) ─────────────────────────────── */
+    .modal-body {
+      background: var(--color-void);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Custom Precision Scrollbars */
+    .modal-body::-webkit-scrollbar {
+      width: 5px;
+    }
+    .modal-body::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .modal-body::-webkit-scrollbar-thumb {
+      background: var(--color-slate);
+      border-radius: 4px;
+    }
+    .modal-body::-webkit-scrollbar-thumb:hover {
+      background: var(--color-smoke);
+    }
+
+    /* ─── Linear Component Library ──────────────────────────────────── */
+
+    /* Segmented Tab Control */
+    .linear-tabs-container {
+      padding: 12px 16px 0;
+    }
+
+    .linear-tab-bar {
+      display: flex;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .linear-tab-btn {
+      flex: 1;
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      color: var(--color-fog);
+      background: transparent;
+      border: none;
+      transition: all 0.15s ease;
+    }
+
+    .linear-tab-btn:hover {
+      color: var(--color-mist);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .linear-tab-btn.active {
+      background: var(--color-slate);
+      color: var(--color-paper);
+      font-weight: 510;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    /* Content Area Container */
+    .tab-content-area {
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+
+    /* Buttons */
+    .btn-primary-lime {
+      background: var(--color-acid-lime);
+      color: var(--color-void);
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 9px 16px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 510;
+      letter-spacing: -0.011em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-primary-lime:hover:not(:disabled) {
+      background: #eef93d;
+      box-shadow: 0 0 12px rgba(228, 242, 34, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary-lime:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    body.theme-canvas-widget .btn-primary-lime {
+      background: var(--color-primary-accent);
+      color: var(--color-primary-accent-text);
+      border-radius: var(--radius-md);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+
+    body.theme-canvas-widget .btn-primary-lime:hover:not(:disabled) {
+      background: var(--color-primary-accent-hover);
+      box-shadow: 0 0 14px var(--color-primary-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-primary-lime:disabled {
+      background: var(--color-slate);
+      color: var(--color-ash);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      color: var(--color-mist);
+      border-radius: var(--radius-md);
+      padding: 8px 14px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 400;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-secondary:hover {
+      background: var(--color-slate);
+      border-color: var(--color-smoke);
+      color: var(--color-paper);
+    }
+
+    .btn-ghost-dashed {
+      background: transparent;
+      border: 1px dashed var(--color-graphite);
+      color: var(--color-fog);
+      border-radius: var(--radius-md);
+      padding: 7px 12px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 400;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-ghost-dashed:hover {
+      border-color: var(--color-smoke);
+      color: var(--color-paper);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Text Inputs */
+    .linear-input {
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      color: var(--color-paper);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      padding: 7px 10px;
+      outline: none;
+      transition: all 0.15s ease;
+      width: 100%;
+    }
+
+    .linear-input:focus {
+      border-color: var(--color-smoke);
+      box-shadow: 0 0 0 1px var(--color-smoke), 0 0 10px rgba(255, 255, 255, 0.04);
+    }
+
+    .linear-input::placeholder {
+      color: var(--color-ash);
+    }
+
+    /* Date Input with Mono format */
+    .linear-date-input {
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      color: var(--color-bone);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 6px 10px;
+      outline: none;
+      transition: all 0.15s ease;
+      color-scheme: dark;
+    }
+
+    .linear-date-input:focus {
+      border-color: var(--color-smoke);
+      box-shadow: 0 0 0 1px var(--color-smoke);
+    }
+
+    /* Select Dropdown */
+    .linear-select {
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      color: var(--color-mist);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      padding: 6px 8px;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238a8f98' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 22px;
+    }
+
+    .linear-select:focus {
+      border-color: var(--color-smoke);
+    }
+
+    /* Sticky Footer Bar */
+    .modal-footer {
+      padding: 12px 16px;
+      background: var(--color-void);
+      border-top: 1px solid var(--color-graphite);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    /* ─── Footer Meta Row (legend + last-edited) ─────────────────────── */
+    .footer-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-last-edited {
+      font-size: 10px;
+      color: var(--color-ash);
+      font-family: var(--font-mono);
+      letter-spacing: -0.01em;
+    }
+
+    /* ─── Legend Strip ───────────────────────────────────────────────── */
+    .legend-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--color-ash);
+      white-space: nowrap;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-dot.weekend    { background: var(--color-iris-violet); opacity: 0.85; }
+    .legend-dot.public-hol { background: var(--color-coral-red);   opacity: 0.9; }
+    .legend-dot.other-hol  { background: var(--color-amber);        opacity: 0.9; }
+
+    /* ─── Date Cell Marker Dots ──────────────────────────────────────── */
+    .date-cell-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .date-marker-cluster {
+      position: absolute;
+      top: -3px;
+      right: -5px;
+      display: flex;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .date-marker-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.25);
+      flex-shrink: 0;
+    }
+
+    .date-marker-dot.weekend    { background: var(--color-iris-violet); }
+    .date-marker-dot.public-hol { background: var(--color-coral-red); }
+    .date-marker-dot.other-hol  { background: var(--color-amber); }
+
+    /* ─── Holiday Settings Panel ─────────────────────────────────────── */
+    .holiday-settings-section {
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.01);
+      flex-shrink: 0;
+    }
+
+    .holiday-settings-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-mist);
+      transition: background 0.15s;
+    }
+
+    .holiday-settings-toggle:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .holiday-settings-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .holiday-settings-toggle-label svg {
+      color: var(--color-fog);
+      flex-shrink: 0;
+    }
+
+    .holiday-chevron {
+      color: var(--color-ash);
+      transition: transform 0.18s ease;
+    }
+
+    .holiday-chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .holiday-settings-body {
+      padding: 4px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-top: 1px solid var(--color-graphite);
+    }
+
+    /* Individual holiday option row */
+    .holiday-option-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .holiday-option-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .holiday-dot-preview {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-top: 3px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .holiday-option-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .holiday-option-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .holiday-option-label {
+      font-size: 12px;
+      color: var(--color-mist);
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    .holiday-option-desc {
+      font-size: 10px;
+      color: var(--color-ash);
+      line-height: 1.4;
+    }
+
+    /* Custom toggle switch */
+    .toggle-switch {
+      position: relative;
+      width: 30px;
+      height: 17px;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background: var(--color-slate);
+      cursor: pointer;
+      transition: background 0.2s ease;
+      border: 1px solid var(--color-graphite);
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--color-fog);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .toggle-switch input:checked + .toggle-track {
+      background: var(--color-primary-accent);
+      border-color: var(--color-primary-accent);
+    }
+
+    .toggle-switch input:checked + .toggle-track::after {
+      transform: translateX(13px);
+      background: white;
+    }
+
+    /* Day count sub-row (shown when public holiday is on) */
+    .holiday-day-count-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .holiday-day-count-label {
+      font-size: 11px;
+      color: var(--color-fog);
+      flex: 1;
+    }
+
+    .day-count-stepper {
+      display: inline-flex;
+      align-items: center;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .day-count-btn {
+      width: 20px;
+      height: 20px;
+      background: transparent;
+      border: none;
+      color: var(--color-fog);
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s;
+      line-height: 1;
+    }
+
+    .day-count-btn:hover {
+      background: var(--color-slate);
+      color: var(--color-paper);
+    }
+
+    .day-count-input {
+      width: 28px;
+      border: none;
+      background: transparent;
+      color: var(--color-paper);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-align: center;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+
+    .day-count-input::-webkit-outer-spin-button,
+    .day-count-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+    }
+
+    .day-count-unit {
+      font-size: 10px;
+      color: var(--color-ash);
+      padding-right: 5px;
+      font-family: var(--font-mono);
+    }
+
+    /* ─── Modal 1: Plan Timeline ─────────────────────────────────────── */
+    .plan-card {
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-lg);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .plan-card:hover {
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .plan-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .plan-task-title {
+      font-size: 13px;
+      font-weight: 510;
+      color: var(--color-paper);
+      letter-spacing: -0.012em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .plan-task-idx {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-ash);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--color-border-subtle);
+    }
+
+    .plan-date-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.015);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+    }
+
+    .plan-date-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .plan-date-label {
+      font-size: 12px;
+      color: var(--color-mist);
+      font-weight: 500;
+    }
+
+    .plan-date-label .required-star {
+      color: var(--color-coral-red);
+      font-weight: 600;
+    }
+
+    .plan-chain-hint {
+      font-size: 10px;
+      color: var(--color-fog);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+    }
+
+    .plan-chain-hint svg {
+      opacity: 0.7;
+    }
+
+    .plan-table-container {
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--color-void);
+    }
+
+    .plan-spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .plan-spec-table th {
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--color-graphite);
+      color: var(--color-fog);
+      font-weight: 500;
+      padding: 6px 10px;
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .plan-spec-table th:last-child {
+      text-align: right;
+      width: 140px;
+      padding-right: 12px;
+    }
+
+    .plan-spec-table td {
+      padding: 7px 10px;
+      color: var(--color-mist);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .plan-spec-table td:last-child {
+      text-align: right;
+      width: 140px;
+      padding-right: 12px;
+    }
+
+    .plan-spec-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .plan-duration-stepper {
+      display: inline-flex;
+      align-items: center;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-left: auto;
+    }
+
+    .stepper-btn {
+      width: 22px;
+      height: 22px;
+      background: transparent;
+      border: none;
+      color: var(--color-fog);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      transition: all 0.1s;
+    }
+
+    .stepper-btn:hover {
+      background: var(--color-slate);
+      color: var(--color-paper);
+    }
+
+    .stepper-input {
+      width: 32px;
+      border: none;
+      background: transparent;
+      color: var(--color-paper);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-align: center;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+
+    .stepper-input::-webkit-outer-spin-button,
+    .stepper-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .stepper-unit {
+      font-size: 10px;
+      color: var(--color-ash);
+      padding-right: 6px;
+      font-family: var(--font-mono);
+    }
+
+    /* Validation Alert Message */
+    .validation-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--color-coral-red);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+
+    /* ─── Modal 2: Settings - Roster Tab ─────────────────────────────── */
+    .roster-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 36px 16px;
+      gap: 10px;
+      text-align: center;
+      border: 1px dashed var(--color-graphite);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    .empty-icon-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-fog);
+    }
+
+    .empty-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-mist);
+    }
+
+    .empty-desc {
+      font-size: 11px;
+      color: var(--color-ash);
+      max-width: 220px;
+    }
+
+    .roster-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .roster-member-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      transition: all 0.15s ease;
+    }
+
+    .roster-member-row:hover {
+      border-color: rgba(255, 255, 255, 0.1);
+      background: #121315;
+    }
+
+    .member-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .avatar-token {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 510;
+      color: #ffffff;
+      text-transform: uppercase;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .member-name {
+      font-size: 12px;
+      color: var(--color-mist);
+    }
+
+    .btn-row-remove {
+      background: transparent;
+      border: none;
+      color: var(--color-ash);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 3px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-row-remove:hover {
+      color: var(--color-coral-red);
+      background: rgba(235, 87, 87, 0.1);
+    }
+
+    .add-member-form {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .shortcut-hint {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-ash);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* ─── Modal 3: Settings - Templates Tab ─────────────────────────── */
+    .template-banner {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--color-fog);
+      line-height: 1.4;
+    }
+
+    .template-banner svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+      color: var(--color-amber);
+    }
+
+    .template-cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .template-card-btn {
+      width: 100%;
+      text-align: left;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.15s ease;
+    }
+
+    .template-card-btn:hover {
+      background: #141518;
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateX(2px);
+    }
+
+    .template-card-btn.active-template {
+      border-color: var(--color-smoke);
+      background: var(--color-slate);
+    }
+
+    .template-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .template-icon-wrap {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--color-border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-fog);
+    }
+
+    .template-text-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .template-name {
+      font-size: 12px;
+      font-weight: 510;
+      color: var(--color-paper);
+      letter-spacing: -0.01em;
+    }
+
+    .template-desc {
+      font-size: 10px;
+      color: var(--color-ash);
+    }
+
+    .template-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-fog);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    /* Inline Confirmation Overlay Banner */
+    .confirm-toast {
+      background: #1a1616;
+      border: 1px solid rgba(235, 87, 87, 0.3);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .confirm-text {
+      font-size: 11px;
+      color: #ff9d9d;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-danger-confirm {
+      background: var(--color-coral-red);
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .btn-cancel-confirm {
+      background: transparent;
+      border: 1px solid var(--color-graphite);
+      color: var(--color-fog);
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    /* ─── Modal 4: Settings - Rows Tab ───────────────────────────────── */
+    .reorderable-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .reorder-item-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      transition: all 0.15s ease;
+    }
+
+    .reorder-item-row:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: #121316;
+    }
+
+    .drag-grip {
+      color: var(--color-ash);
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.1s;
+    }
+
+    .drag-grip:hover {
+      color: var(--color-paper);
+    }
+
+    .row-label-text {
+      flex: 1;
+      font-size: 12px;
+      color: var(--color-paper);
+      font-weight: 500;
+    }
+
+    .delete-confirm-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+
+    .btn-confirm-yes {
+      color: var(--color-coral-red);
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .btn-confirm-cancel {
+      color: var(--color-fog);
+      cursor: pointer;
+    }
+
+    /* ─── Modal 5: Settings - Structure Tab ─────────────────────────── */
+    .column-structure-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+    }
+
+    .column-structure-row:hover {
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .column-name-input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: var(--color-paper);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      padding: 4px 6px;
+      outline: none;
+    }
+
+    .column-name-input:focus {
+      background: var(--color-void);
+      border-color: var(--color-smoke);
+    }
+
+    .locked-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-ash);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 3px;
+      padding: 2px 6px;
+    }
+
+    /* ─── Design Spec Floating Guide ────────────────────────────────── */
+    .design-spec-bar {
+      width: 100%;
+      max-width: 900px;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-lg);
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .spec-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .spec-title {
+      font-size: 13px;
+      font-weight: 510;
+      color: var(--color-paper);
+    }
+
+    .token-pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .token-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--color-void);
+      border: 1px solid var(--color-graphite);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .color-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    /* ─── FigJam Canvas Widget Table Component ────────────────────────── */
+    .widget-showcase-section {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-top: 10px;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .widget-section-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+
+    .widget-section-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .widget-badge-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: var(--color-primary-accent-subtle);
+      border: 1px solid var(--color-primary-accent-border);
+      color: var(--color-primary-accent);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 500;
+    }
+
+    .widget-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-paper);
+      letter-spacing: -0.015em;
+    }
+
+    .widget-canvas-frame {
+      width: 100%;
+      background: var(--color-void);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-xl);
+      padding: 8px;
+      box-shadow: var(--shadow-modal);
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .widget-inner-card {
+      background: var(--color-void);
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .widget-title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--color-void);
+      gap: 16px;
+    }
+
+    .widget-title-input {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--color-paper);
+      letter-spacing: -0.02em;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      padding: 4px 8px;
+      outline: none;
+      font-family: var(--font-sans);
+      transition: border-color 0.15s;
+      width: 320px;
+    }
+
+    .widget-title-input:hover {
+      border-color: var(--color-graphite);
+    }
+
+    .widget-title-input:focus {
+      border-color: var(--color-smoke);
+      background: var(--color-carbon);
+    }
+
+    .widget-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .widget-btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: transparent;
+      border: 1px solid var(--color-graphite);
+      border-radius: var(--radius-md);
+      color: var(--color-mist);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .widget-btn-action:hover {
+      background: var(--color-carbon);
+      border-color: var(--color-smoke);
+      color: var(--color-paper);
+    }
+
+    .widget-btn-action svg {
+      color: var(--color-fog);
+      flex-shrink: 0;
+    }
+
+    .widget-table-header {
+      display: flex;
+      align-items: center;
+      padding: 11px 24px;
+      background: var(--color-void);
+      border-top: 1px solid var(--color-graphite);
+      gap: 20px;
+    }
+
+    .widget-th-col {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--color-paper);
+      opacity: 0.9;
+      letter-spacing: -0.01em;
+    }
+
+    .widget-table-row {
+      display: flex;
+      align-items: center;
+      padding: 13px 24px;
+      background: var(--color-void);
+      border-top: 1px solid var(--color-graphite);
+      gap: 20px;
+      transition: background 0.12s ease;
+    }
+
+    .widget-table-row:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .widget-col-task {
+      width: 290px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .widget-row-idx {
+      font-size: 11px;
+      color: var(--color-fog);
+      font-family: var(--font-mono);
+      width: 18px;
+      flex-shrink: 0;
+    }
+
+    .widget-task-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-bone);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .widget-col-date {
+      width: 165px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .widget-date-badge-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      background: var(--color-carbon);
+      border: 1px solid var(--color-graphite);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .widget-date-badge-wrapper:hover {
+      border-color: var(--color-smoke);
+      background: var(--color-slate);
+    }
+
+    .widget-date-text {
+      font-size: 11px;
+      font-family: var(--font-sans);
+      color: var(--color-bone);
+      font-weight: 400;
+    }
+
+    .widget-col-status {
+      width: 135px;
+      flex-shrink: 0;
+    }
+
+    .widget-status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+
+    .widget-status-pill:hover {
+      opacity: 0.85;
+    }
+
+    .status-done {
+      background: #0D3326;
+      color: #4ADE80;
+    }
+
+    .status-wip {
+      background: #2D1B41;
+      color: #DFC4FF;
+    }
+
+    .status-review {
+      background: #0F2040;
+      color: #93C5FD;
+    }
+
+    .status-pending {
+      background: #2C2C2C;
+      color: #F7D15F;
+    }
+
+    .status-blocked {
+      background: #3B0D0D;
+      color: #FCA5A5;
+    }
+
+    .widget-col-assignee {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .widget-avatar-stack {
+      display: flex;
+      align-items: center;
+      margin-right: 2px;
+    }
+
+    .widget-avatar-chip {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      color: #FFFFFF;
+      box-shadow: 0 0 0 1px var(--color-void);
+      margin-left: -5px;
+    }
+
+    .widget-avatar-chip:first-child {
+      margin-left: 0;
+    }
+
+    .widget-assignee-text {
+      font-size: 11px;
+      color: var(--color-mist);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .widget-footer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--color-void);
+      border-top: 1px solid var(--color-graphite);
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .widget-footer-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .widget-footer-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+  </style>
+</head>
+<body class="theme-canvas-widget">
+
+  <!-- Top Toolbar / Navigation -->
+  <header class="top-toolbar">
+    <div class="brand-meta">
+      <div class="brand-badge">
+        <span class="dot"></span>
+        <span>FIGMA CANVAS WIDGET</span>
+      </div>
+      <div>
+        <div class="brand-title">Timeline Estimator</div>
+        <div class="brand-subtitle">Interactive Widget &amp; Modal System</div>
+      </div>
+    </div>
+
+    <!-- Clean Interactive View Switcher -->
+    <div class="view-switcher">
+      <button class="view-btn active" data-view="widget" onclick="switchView('widget')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 5h10M4 5v5M8 5v5" stroke="currentColor" stroke-width="1.2"/></svg>
+        Widget Table
+      </button>
+      <button class="view-btn" data-view="plan" onclick="switchView('plan')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="8" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M4 1v2M8 1v2M1 5h10" stroke="currentColor" stroke-width="1.2"/></svg>
+        Plan Timeline
+      </button>
+      <button class="view-btn" data-view="roster" onclick="switchView('roster')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4" r="2.2" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 10c0-1.8 1.5-3 3.5-3s3.5 1.2 3.5 3" stroke="currentColor" stroke-width="1.2"/></svg>
+        Settings: Roster
+      </button>
+      <button class="view-btn" data-view="templates" onclick="switchView('templates')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 2v8M2 5h8" stroke="currentColor" stroke-width="1.2"/></svg>
+        Settings: Templates
+      </button>
+      <button class="view-btn" data-view="rows" onclick="switchView('rows')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M2 6h8M2 9h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Settings: Rows
+      </button>
+      <button class="view-btn" data-view="structure" onclick="switchView('structure')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1.5" y="1.5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 1.5v9M7.5 1.5v9" stroke="currentColor" stroke-width="1.2"/></svg>
+        Settings: Structure
+      </button>
+    </div>
+
+    <div class="toolbar-actions">
+      <span class="ghost-tag">Inter Font · 11px</span>
+    </div>
+  </header>
+
+  <!-- Showcase Stage -->
+  <main class="showcase-stage">
+
+    <!-- View Container: Single, Split Compare, or All -->
+    <div id="active-viewport" class="single-modal-container">
+      <!-- Injected by JavaScript switchView() -->
+    </div>
+
+  </main>
+
+  <!-- Templates for all 5 Modals -->
+  <div id="modal-templates" style="display: none;">
+
+    <!-- ===================================================================
+         MODAL 1: PLAN TIMELINE (466px × 540px)
+         =================================================================== -->
+    <div id="tpl-plan">
+      <div class="figma-modal-window" style="width: 466px; height: 540px;">
+        <!-- Preserved Modal Window Frame -->
+        <div class="figma-modal-header">
+          <div class="figma-modal-title-group">
+            <div class="figma-code-badge">&lt;/&gt;</div>
+            <div class="figma-modal-title">Plan Timeline</div>
+          </div>
+          <button class="figma-close-btn" title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <!-- Inside of Modal -->
+        <div class="modal-body" style="padding: 16px; gap: 14px; display: flex; flex-direction: column;">
+
+          <!-- ── Date Cells Preview with Circle Markers ─────────────────── -->
+          <!-- This strip shows how dates appear on the timeline canvas.      -->
+          <!-- Each marker dot signals: weekend / public holiday / other hol. -->
+          <div style="background: rgba(255,255,255,0.015); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: 8px 10px;">
+            <div style="font-size: 10px; color: var(--color-ash); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Date Cell Preview</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+
+              <!-- Weekday cell — no markers -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                <div class="date-cell-wrapper">
+                  <div style="background: var(--color-carbon); border: 1px solid var(--color-graphite); border-radius: 3px; padding: 4px 7px; font-family: var(--font-mono); font-size: 10px; color: var(--color-mist);">Mon<br><span style="font-size:11px; font-weight:600;">6</span></div>
+                </div>
+                <span style="font-size:9px; color: var(--color-ash);">Weekday</span>
+              </div>
+
+              <!-- Weekend cell — violet dot -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                <div class="date-cell-wrapper" style="margin-right: 6px;">
+                  <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 3px; padding: 4px 7px; font-family: var(--font-mono); font-size: 10px; color: var(--color-mist);">Sat<br><span style="font-size:11px; font-weight:600;">7</span></div>
+                  <div class="date-marker-cluster">
+                    <div class="date-marker-dot weekend" title="Weekend"></div>
+                  </div>
+                </div>
+                <span style="font-size:9px; color: var(--color-ash);">Weekend</span>
+              </div>
+
+              <!-- Public holiday cell — red dot -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                <div class="date-cell-wrapper" style="margin-right: 6px;">
+                  <div style="background: rgba(235,87,87,0.08); border: 1px solid rgba(235,87,87,0.25); border-radius: 3px; padding: 4px 7px; font-family: var(--font-mono); font-size: 10px; color: var(--color-mist);">Wed<br><span style="font-size:11px; font-weight:600;">1</span></div>
+                  <div class="date-marker-cluster">
+                    <div class="date-marker-dot public-hol" title="Public Holiday"></div>
+                  </div>
+                </div>
+                <span style="font-size:9px; color: var(--color-ash);">Public Hol.</span>
+              </div>
+
+              <!-- Other holiday cell — amber dot -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                <div class="date-cell-wrapper" style="margin-right: 6px;">
+                  <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 3px; padding: 4px 7px; font-family: var(--font-mono); font-size: 10px; color: var(--color-mist);">Thu<br><span style="font-size:11px; font-weight:600;">2</span></div>
+                  <div class="date-marker-cluster">
+                    <div class="date-marker-dot other-hol" title="Other Holiday"></div>
+                  </div>
+                </div>
+                <span style="font-size:9px; color: var(--color-ash);">Other Hol.</span>
+              </div>
+
+              <!-- Weekend + public holiday stacked -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                <div class="date-cell-wrapper" style="margin-right: 8px;">
+                  <div style="background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); border-radius: 3px; padding: 4px 7px; font-family: var(--font-mono); font-size: 10px; color: var(--color-mist);">Sun<br><span style="font-size:11px; font-weight:600;">8</span></div>
+                  <div class="date-marker-cluster">
+                    <div class="date-marker-dot weekend" title="Weekend"></div>
+                    <div class="date-marker-dot public-hol" title="Public Holiday"></div>
+                  </div>
+                </div>
+                <span style="font-size:9px; color: var(--color-ash);">Stacked</span>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ── Holiday Settings (collapsible) ─────────────────────────── -->
+          <div class="holiday-settings-section">
+            <button class="holiday-settings-toggle" onclick="toggleHolidaySettings(this)">
+              <div class="holiday-settings-toggle-label">
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
+                  <path d="M7 4v3l2 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+                Holiday &amp; Non-working Days
+              </div>
+              <svg class="holiday-chevron" width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+
+            <div class="holiday-settings-body" id="holiday-body" style="display: none;">
+
+              <!-- Weekend option -->
+              <div class="holiday-option-row">
+                <div class="holiday-dot-preview" style="background: var(--color-iris-violet);"></div>
+                <div class="holiday-option-content">
+                  <div class="holiday-option-header">
+                    <span class="holiday-option-label">Include Weekends</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="toggle-weekend" onchange="updateMarkersPreview()">
+                      <div class="toggle-track"></div>
+                    </label>
+                  </div>
+                  <span class="holiday-option-desc">Saturday and Sunday cells will be marked with a <span style="color:var(--color-iris-violet);">violet ●</span> and excluded from working day count.</span>
+                </div>
+              </div>
+
+              <!-- Public holiday option -->
+              <div class="holiday-option-row">
+                <div class="holiday-dot-preview" style="background: var(--color-coral-red);"></div>
+                <div class="holiday-option-content">
+                  <div class="holiday-option-header">
+                    <span class="holiday-option-label">Public Holidays</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="toggle-public-hol" onchange="togglePublicHolCount(this)">
+                      <div class="toggle-track"></div>
+                    </label>
+                  </div>
+                  <span class="holiday-option-desc">Public holiday dates will show a <span style="color:var(--color-coral-red);">red ●</span> and be skipped in duration calculations.</span>
+                  <!-- Day count sub-row (shown when toggle is on) -->
+                  <div class="holiday-day-count-row" id="public-hol-count-row" style="display: none;">
+                    <span class="holiday-day-count-label">Number of public holidays in range</span>
+                    <div class="day-count-stepper">
+                      <button class="day-count-btn" onclick="stepDayCount('public-hol-count', -1)">−</button>
+                      <input type="text" id="public-hol-count" value="2" class="day-count-input" readonly>
+                      <span class="day-count-unit">d</span>
+                      <button class="day-count-btn" onclick="stepDayCount('public-hol-count', 1)">+</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Other holidays option -->
+              <div class="holiday-option-row">
+                <div class="holiday-dot-preview" style="background: var(--color-amber);"></div>
+                <div class="holiday-option-content">
+                  <div class="holiday-option-header">
+                    <span class="holiday-option-label">Other Holidays</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="toggle-other-hol" onchange="updateMarkersPreview()">
+                      <div class="toggle-track"></div>
+                    </label>
+                  </div>
+                  <span class="holiday-option-desc">Custom or regional non-working days marked with an <span style="color:var(--color-amber);">amber ●</span> (e.g. company off-days, bridge holidays).</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ── Task Cards ──────────────────────────────────────────────── -->
+
+          <!-- Task Card 1 (Task 3) -->
+          <div class="plan-card">
+            <div class="plan-card-header">
+              <div class="plan-task-title">
+                Task 3
+                <span class="plan-task-idx">Row 1</span>
+              </div>
+            </div>
+
+            <div class="plan-date-row">
+              <div class="plan-date-meta">
+                <span class="plan-date-label">Start Date <span class="required-star">*</span></span>
+              </div>
+              <!-- Date input wrapped to show markers -->
+              <div class="date-cell-wrapper" style="margin-right: 6px;">
+                <input type="date" value="2026-10-01" class="linear-date-input" style="width: 145px;" onchange="validatePlan(); renderDateMarkers(this)">
+                <!-- Oct 1 = Thu — public holiday marker shown as example -->
+                <div class="date-marker-cluster" id="date-markers-task3">
+                  <div class="date-marker-dot public-hol" title="Public Holiday"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="plan-table-container">
+              <table class="plan-spec-table">
+                <thead>
+                  <tr>
+                    <th>Timeline Column</th>
+                    <th>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Start – End</td>
+                    <td>
+                      <div class="plan-duration-stepper">
+                        <button class="stepper-btn" onclick="stepDuration(this, -0.5)">−</button>
+                        <input type="text" value="1.0" class="stepper-input" readonly>
+                        <span class="stepper-unit">d</span>
+                        <button class="stepper-btn" onclick="stepDuration(this, 0.5)">+</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Task Card 2 (Task 1) -->
+          <div class="plan-card">
+            <div class="plan-card-header">
+              <div class="plan-task-title">
+                Task 1
+                <span class="plan-task-idx">Row 2</span>
+              </div>
+            </div>
+
+            <div class="plan-date-row">
+              <div class="plan-date-meta">
+                <span class="plan-date-label">Start Date</span>
+                <span class="plan-chain-hint">
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M3 2v5a3 3 0 003 3h4M7 7l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Chains from Task 3 if empty
+                </span>
+              </div>
+              <!-- Oct 4 = Sun, so weekend marker -->
+              <div class="date-cell-wrapper" style="margin-right: 6px;">
+                <input type="date" value="2026-10-04" class="linear-date-input" style="width: 145px;">
+                <div class="date-marker-cluster" id="date-markers-task1">
+                  <div class="date-marker-dot weekend" title="Weekend"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="plan-table-container">
+              <table class="plan-spec-table">
+                <thead>
+                  <tr>
+                    <th>Timeline Column</th>
+                    <th>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Start – End</td>
+                    <td>
+                      <div class="plan-duration-stepper">
+                        <button class="stepper-btn" onclick="stepDuration(this, -0.5)">−</button>
+                        <input type="text" value="1.0" class="stepper-input" readonly>
+                        <span class="stepper-unit">d</span>
+                        <button class="stepper-btn" onclick="stepDuration(this, 0.5)">+</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Task Card 3 (Task 2) -->
+          <div class="plan-card">
+            <div class="plan-card-header">
+              <div class="plan-task-title">
+                Task 2
+                <span class="plan-task-idx">Row 3</span>
+              </div>
+            </div>
+
+            <div class="plan-date-row">
+              <div class="plan-date-meta">
+                <span class="plan-date-label">Start Date</span>
+                <span class="plan-chain-hint">
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M3 2v5a3 3 0 003 3h4M7 7l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Chains from Task 1 if empty
+                </span>
+              </div>
+              <!-- Oct 6 = Tue, no marker -->
+              <div class="date-cell-wrapper">
+                <input type="date" value="2026-10-06" class="linear-date-input" style="width: 145px;">
+              </div>
+            </div>
+
+            <div class="plan-table-container">
+              <table class="plan-spec-table">
+                <thead>
+                  <tr>
+                    <th>Timeline Column</th>
+                    <th>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Start – End</td>
+                    <td>
+                      <div class="plan-duration-stepper">
+                        <button class="stepper-btn" onclick="stepDuration(this, -0.5)">−</button>
+                        <input type="text" value="1.0" class="stepper-input" readonly>
+                        <span class="stepper-unit">d</span>
+                        <button class="stepper-btn" onclick="stepDuration(this, 0.5)">+</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Sticky Footer with legend + last-edited + CTA -->
+        <div class="modal-footer">
+          <div id="plan-validation" class="validation-badge" style="display: none;">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M6 3.5v3M6 8.5h.01" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            Start date is required for the first row
+          </div>
+          <button class="btn-primary-lime" style="width: 100%;" onclick="triggerPlanConfirm(this)">
+            Apply Plan
+          </button>
+          <!-- Legend + Last Edited row -->
+          <div class="footer-meta-row">
+            <div class="legend-strip" id="plan-legend">
+              <div class="legend-item">
+                <div class="legend-dot weekend"></div>
+                Weekend
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot public-hol"></div>
+                Public Holiday
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot other-hol"></div>
+                Other Holiday
+              </div>
+            </div>
+            <span class="footer-last-edited" id="plan-last-edited">edited just now</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         MODAL 2: SETTINGS - ROSTER TAB (400px × 500px)
+         =================================================================== -->
+    <div id="tpl-roster">
+      <div class="figma-modal-window" style="width: 400px; height: 500px;">
+        <!-- Preserved Modal Window Frame -->
+        <div class="figma-modal-header">
+          <div class="figma-modal-title-group">
+            <div class="figma-code-badge">&lt;/&gt;</div>
+            <div class="figma-modal-title">Settings</div>
+          </div>
+          <button class="figma-close-btn" title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <!-- Linear Tabs Navigation -->
+        <div class="linear-tabs-container">
+          <div class="linear-tab-bar">
+            <button class="linear-tab-btn active" onclick="switchSettingsTab('roster')">Roster</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('templates')">Templates</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('rows')">Rows</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('structure')">Structure</button>
+          </div>
+        </div>
+
+        <!-- Tab Body -->
+        <div class="tab-content-area">
+          
+          <!-- Roster Members List with Linear Aesthetic -->
+          <div class="roster-list" id="demo-roster-list">
+            <div class="roster-member-row">
+              <div class="member-info">
+                <div class="avatar-token" style="background: #02b8cc;">SD</div>
+                <span class="member-name">Sagnik D.</span>
+              </div>
+              <button class="btn-row-remove" onclick="removeRosterItem(this)">Remove</button>
+            </div>
+            <div class="roster-member-row">
+              <div class="member-info">
+                <div class="avatar-token" style="background: #6366f1;">AL</div>
+                <span class="member-name">Alex Lin</span>
+              </div>
+              <button class="btn-row-remove" onclick="removeRosterItem(this)">Remove</button>
+            </div>
+          </div>
+
+          <!-- Add Member Input Row -->
+          <div class="add-member-form">
+            <input type="text" id="new-roster-name" class="linear-input" placeholder="Add team member name..." onkeydown="handleRosterKey(event)">
+            <button class="btn-ghost-dashed" style="white-space: nowrap; padding: 6px 12px;" onclick="addRosterMember()">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              Add member
+            </button>
+          </div>
+
+          <!-- Subtle Empty State Toggle (for inspection) -->
+          <div style="margin-top: auto; padding-top: 10px; border-top: 1px solid var(--color-border-subtle); display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 11px; color: var(--color-ash);">Empty state preview:</span>
+            <button class="btn-ghost-dashed" style="padding: 3px 8px; font-size: 10px;" onclick="toggleRosterEmpty()">Toggle Empty</button>
+          </div>
+
+          <!-- Empty State (Hidden initially) -->
+          <div id="roster-empty-box" class="roster-empty-state" style="display: none;">
+            <div class="empty-icon-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M5 20c0-3.8 3.1-7 7-7s7 3.2 7 7" stroke="currentColor" stroke-width="1.5"/></svg>
+            </div>
+            <div class="empty-title">No members in roster yet</div>
+            <div class="empty-desc">Team assignees added here will be available in timeline dropdowns.</div>
+          </div>
+
+        </div>
+
+        <!-- Sticky Footer -->
+        <div class="modal-footer">
+          <button class="btn-primary-lime" style="width: 100%;">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         MODAL 3: SETTINGS - TEMPLATES TAB (400px × 500px)
+         =================================================================== -->
+    <div id="tpl-templates">
+      <div class="figma-modal-window" style="width: 400px; height: 500px;">
+        <!-- Preserved Modal Window Frame -->
+        <div class="figma-modal-header">
+          <div class="figma-modal-title-group">
+            <div class="figma-code-badge">&lt;/&gt;</div>
+            <div class="figma-modal-title">Settings</div>
+          </div>
+          <button class="figma-close-btn" title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <!-- Linear Tabs Navigation -->
+        <div class="linear-tabs-container">
+          <div class="linear-tab-bar">
+            <button class="linear-tab-btn" onclick="switchSettingsTab('roster')">Roster</button>
+            <button class="linear-tab-btn active" onclick="switchSettingsTab('templates')">Templates</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('rows')">Rows</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('structure')">Structure</button>
+          </div>
+        </div>
+
+        <!-- Tab Body -->
+        <div class="tab-content-area">
+          
+          <div class="template-banner">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L12.5 11.5H1.5L7 1.5Z" stroke="currentColor" stroke-width="1.2"/><path d="M7 5.5v3M7 10h.01" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <div>Select a preset structure. Applying will overwrite current columns and tasks.</div>
+          </div>
+
+          <!-- Inline Confirmation Alert (Conditional) -->
+          <div id="template-confirm-box" class="confirm-toast" style="display: none;">
+            <div class="confirm-text" id="confirm-msg">Apply "Design Sprint"? Existing timeline rows will be replaced.</div>
+            <div class="confirm-actions">
+              <button class="btn-danger-confirm" onclick="applyTemplateConfirm()">Confirm & Overwrite</button>
+              <button class="btn-cancel-confirm" onclick="cancelTemplateConfirm()">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Linear Template Cards -->
+          <div class="template-cards-list">
+            
+            <button class="template-card-btn" onclick="showTemplateConfirm('Blank', 'Empty canvas with starter columns')">
+              <div class="template-left">
+                <div class="template-icon-wrap">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/></svg>
+                </div>
+                <div class="template-text-group">
+                  <span class="template-name">Blank</span>
+                  <span class="template-desc">Minimalist layout with single date range</span>
+                </div>
+              </div>
+              <span class="template-tag">Clean</span>
+            </button>
+
+            <button class="template-card-btn active-template" onclick="showTemplateConfirm('Design & Experience', 'Discovery, Design, Prototype, Polish')">
+              <div class="template-left">
+                <div class="template-icon-wrap">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 9.5l4-4 2 2 4-5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M8 2.5h3v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                </div>
+                <div class="template-text-group">
+                  <span class="template-name">Design & Experience</span>
+                  <span class="template-desc">Product discovery, UX, UI, and review</span>
+                </div>
+              </div>
+              <span class="template-tag">Popular</span>
+            </button>
+
+            <button class="template-card-btn" onclick="showTemplateConfirm('Design Sprint', '5-day sprint structure (Map, Sketch, Decide, Prototype, Test)')">
+              <div class="template-left">
+                <div class="template-icon-wrap">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 10.5V2l7 3.5-7 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="template-text-group">
+                  <span class="template-name">Design Sprint</span>
+                  <span class="template-desc">5-day rapid prototyping framework</span>
+                </div>
+              </div>
+              <span class="template-tag">5 Days</span>
+            </button>
+
+            <button class="template-card-btn" onclick="showTemplateConfirm('Product Design', 'Spec, Wireframes, High-Fi, Handoff')">
+              <div class="template-left">
+                <div class="template-icon-wrap">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="M6 3.5v2.5l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                </div>
+                <div class="template-text-group">
+                  <span class="template-name">Product Design</span>
+                  <span class="template-desc">Feature lifecycle from spec to dev handoff</span>
+                </div>
+              </div>
+              <span class="template-tag">Standard</span>
+            </button>
+
+            <button class="template-card-btn" onclick="showTemplateConfirm('Brand / Marketing', 'Brief, Concepting, Visual Assets, Launch')">
+              <div class="template-left">
+                <div class="template-icon-wrap">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 2L3 6l7 4V2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="template-text-group">
+                  <span class="template-name">Brand / Marketing</span>
+                  <span class="template-desc">Campaign timeline & multi-channel deliverables</span>
+                </div>
+              </div>
+              <span class="template-tag">Creative</span>
+            </button>
+
+            <button class="template-card-btn" onclick="showTemplateConfirm('UX Research', 'Recruit, Interviews, Synthesis, Readout')">
+              <div class="template-left">
+                <div class="template-icon-wrap">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5.5" cy="5.5" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8.5 8.5L10.5 10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                </div>
+                <div class="template-text-group">
+                  <span class="template-name">UX Research</span>
+                  <span class="template-desc">Participant synthesis & qualitative studies</span>
+                </div>
+              </div>
+              <span class="template-tag">Research</span>
+            </button>
+
+          </div>
+
+        </div>
+
+        <!-- Sticky Footer -->
+        <div class="modal-footer">
+          <button class="btn-primary-lime" style="width: 100%;">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         MODAL 4: SETTINGS - ROWS TAB (400px × 500px)
+         =================================================================== -->
+    <div id="tpl-rows">
+      <div class="figma-modal-window" style="width: 400px; height: 500px;">
+        <!-- Preserved Modal Window Frame -->
+        <div class="figma-modal-header">
+          <div class="figma-modal-title-group">
+            <div class="figma-code-badge">&lt;/&gt;</div>
+            <div class="figma-modal-title">Settings</div>
+          </div>
+          <button class="figma-close-btn" title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <!-- Linear Tabs Navigation -->
+        <div class="linear-tabs-container">
+          <div class="linear-tab-bar">
+            <button class="linear-tab-btn" onclick="switchSettingsTab('roster')">Roster</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('templates')">Templates</button>
+            <button class="linear-tab-btn active" onclick="switchSettingsTab('rows')">Rows</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('structure')">Structure</button>
+          </div>
+        </div>
+
+        <!-- Tab Body -->
+        <div class="tab-content-area">
+          
+          <div class="reorderable-list" id="rows-container-list">
+            
+            <div class="reorder-item-row">
+              <div class="drag-grip" title="Drag to reorder">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+              </div>
+              <span class="row-label-text">Task 3</span>
+              <button class="btn-row-remove" onclick="promptDeleteRow(this)">Remove</button>
+            </div>
+
+            <div class="reorder-item-row">
+              <div class="drag-grip" title="Drag to reorder">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+              </div>
+              <span class="row-label-text">Task 1</span>
+              <button class="btn-row-remove" onclick="promptDeleteRow(this)">Remove</button>
+            </div>
+
+            <div class="reorder-item-row">
+              <div class="drag-grip" title="Drag to reorder">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+              </div>
+              <span class="row-label-text">Task 2</span>
+              <button class="btn-row-remove" onclick="promptDeleteRow(this)">Remove</button>
+            </div>
+
+          </div>
+
+          <div>
+            <button class="btn-ghost-dashed" onclick="addNewRowItem()">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              Add row
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Sticky Footer -->
+        <div class="modal-footer">
+          <button class="btn-primary-lime" style="width: 100%;">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         MODAL 5: SETTINGS - STRUCTURE TAB (400px × 500px)
+         =================================================================== -->
+    <div id="tpl-structure">
+      <div class="figma-modal-window" style="width: 400px; height: 500px;">
+        <!-- Preserved Modal Window Frame -->
+        <div class="figma-modal-header">
+          <div class="figma-modal-title-group">
+            <div class="figma-code-badge">&lt;/&gt;</div>
+            <div class="figma-modal-title">Settings</div>
+          </div>
+          <button class="figma-close-btn" title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <!-- Linear Tabs Navigation -->
+        <div class="linear-tabs-container">
+          <div class="linear-tab-bar">
+            <button class="linear-tab-btn" onclick="switchSettingsTab('roster')">Roster</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('templates')">Templates</button>
+            <button class="linear-tab-btn" onclick="switchSettingsTab('rows')">Rows</button>
+            <button class="linear-tab-btn active" onclick="switchSettingsTab('structure')">Structure</button>
+          </div>
+        </div>
+
+        <!-- Tab Body -->
+        <div class="tab-content-area">
+          
+          <div class="reorderable-list" id="columns-structure-list">
+            
+            <!-- Locked Primary Column -->
+            <div class="column-structure-row" style="background: rgba(255, 255, 255, 0.015);">
+              <div style="width: 14px; display: flex; align-items: center; justify-content: center; color: var(--color-ash);">
+                <svg width="10" height="12" viewBox="0 0 10 12" fill="none"><rect x="1.5" y="4.5" width="7" height="6.5" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 4.5V3a2 2 0 114 0v1.5" stroke="currentColor" stroke-width="1.2"/></svg>
+              </div>
+              <input type="text" class="column-name-input" value="Task / Screen" readonly>
+              <span class="locked-badge">Text (Primary)</span>
+            </div>
+
+            <!-- Draggable Column 2: Date Range -->
+            <div class="column-structure-row">
+              <div class="drag-grip">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+              </div>
+              <input type="text" class="column-name-input" value="Start – End">
+              <select class="linear-select">
+                <option value="daterange" selected>Date Range</option>
+                <option value="text">Text</option>
+                <option value="status">Status</option>
+                <option value="assignee">Assignee</option>
+              </select>
+              <button class="btn-row-remove" onclick="removeColumnRow(this)">Remove</button>
+            </div>
+
+            <!-- Draggable Column 3: Status -->
+            <div class="column-structure-row">
+              <div class="drag-grip">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+              </div>
+              <input type="text" class="column-name-input" value="Status">
+              <select class="linear-select">
+                <option value="status" selected>Status</option>
+                <option value="daterange">Date Range</option>
+                <option value="text">Text</option>
+                <option value="assignee">Assignee</option>
+              </select>
+              <button class="btn-row-remove" onclick="removeColumnRow(this)">Remove</button>
+            </div>
+
+            <!-- Draggable Column 4: Assignee -->
+            <div class="column-structure-row">
+              <div class="drag-grip">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+              </div>
+              <input type="text" class="column-name-input" value="Assignee">
+              <select class="linear-select">
+                <option value="assignee" selected>Assignee</option>
+                <option value="status">Status</option>
+                <option value="daterange">Date Range</option>
+                <option value="text">Text</option>
+              </select>
+              <button class="btn-row-remove" onclick="removeColumnRow(this)">Remove</button>
+            </div>
+
+            <!-- Draggable Column 5: New Column -->
+            <div class="column-structure-row">
+              <div class="drag-grip">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+              </div>
+              <input type="text" class="column-name-input" value="Review Stage">
+              <select class="linear-select">
+                <option value="text" selected>Text</option>
+                <option value="status">Status</option>
+                <option value="daterange">Date Range</option>
+                <option value="assignee">Assignee</option>
+              </select>
+              <button class="btn-row-remove" onclick="removeColumnRow(this)">Remove</button>
+            </div>
+
+          </div>
+
+          <div>
+            <button class="btn-ghost-dashed" onclick="addNewColumnRow()">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              Add column
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Sticky Footer -->
+        <div class="modal-footer">
+          <button class="btn-primary-lime" style="width: 100%;">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         MODAL 6: FIGJAM CANVAS WIDGET TABLE
+         =================================================================== -->
+    <div id="tpl-widget">
+      <div class="widget-canvas-frame" style="max-width: 860px; width: 100%;">
+        <div class="widget-inner-card">
+
+          <!-- Widget Title Bar -->
+          <div class="widget-title-bar">
+            <input type="text" class="widget-title-input" value="Timeline Estimation" placeholder="Project Name..." />
+            <div class="widget-btn-group">
+              <button class="widget-btn-action" onclick="switchView('plan')" title="Open Plan Timeline modal">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <rect x="1.5" y="3.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                  <path d="M1.5 7h13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                  <path d="M5 1.5V4M11 1.5V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                  <circle cx="5" cy="10" r="1" fill="currentColor"/>
+                  <circle cx="8" cy="10" r="1" fill="currentColor"/>
+                  <circle cx="11" cy="10" r="1" fill="currentColor"/>
+                </svg>
+                Make plan
+              </button>
+              <button class="widget-btn-action" onclick="switchView('roster')" title="Open Settings modal">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                Settings
+              </button>
+            </div>
+          </div>
+
+          <!-- Column Headers -->
+          <div class="widget-table-header">
+            <div class="widget-th-col" style="width: 290px;">Task / Screen</div>
+            <div class="widget-th-col" style="width: 165px;">Start – End</div>
+            <div class="widget-th-col" style="width: 135px;">Status</div>
+            <div class="widget-th-col" style="flex: 1;">Assignee</div>
+          </div>
+
+          <!-- Table Rows Container -->
+          <div class="widget-rows-container">
+            <!-- Table Row 1 -->
+            <div class="widget-table-row">
+              <div class="widget-col-task">
+                <span class="widget-row-idx">1.</span>
+                <span class="widget-task-name">Task 3 · Discovery &amp; Scope</span>
+              </div>
+              <div class="widget-col-date">
+                <div class="widget-date-badge-wrapper" onclick="switchView('plan')" title="Click to open Plan Timeline">
+                  <span class="widget-date-text">1 Oct - 3 Oct</span>
+                  <div class="date-marker-cluster" style="position: static; margin-left: 2px;">
+                    <div class="date-marker-dot public-hol" title="Public Holiday (1 Oct)"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="widget-col-status">
+                <span class="widget-status-pill status-done" onclick="cycleWidgetStatus(this)" title="Click to cycle status">Done</span>
+              </div>
+              <div class="widget-col-assignee" onclick="switchView('roster')" title="Click to manage roster">
+                <div class="widget-avatar-stack">
+                  <div class="widget-avatar-chip" style="background: #0A6DC2;" title="Sagnik D.">S</div>
+                </div>
+                <span class="widget-assignee-text">Sagnik D.</span>
+              </div>
+            </div>
+
+            <!-- Table Row 2 -->
+            <div class="widget-table-row">
+              <div class="widget-col-task">
+                <span class="widget-row-idx">2.</span>
+                <span class="widget-task-name">Task 1 · Wireframes &amp; Flows</span>
+              </div>
+              <div class="widget-col-date">
+                <div class="widget-date-badge-wrapper" onclick="switchView('plan')" title="Click to open Plan Timeline">
+                  <span class="widget-date-text">4 Oct - 5 Oct</span>
+                  <div class="date-marker-cluster" style="position: static; margin-left: 2px;">
+                    <div class="date-marker-dot weekend" title="Weekend (4-5 Oct)"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="widget-col-status">
+                <span class="widget-status-pill status-wip" onclick="cycleWidgetStatus(this)" title="Click to cycle status">WIP</span>
+              </div>
+              <div class="widget-col-assignee" onclick="switchView('roster')" title="Click to manage roster">
+                <div class="widget-avatar-stack">
+                  <div class="widget-avatar-chip" style="background: #8A38F5;" title="Alex Lin">A</div>
+                </div>
+                <span class="widget-assignee-text">Alex Lin</span>
+              </div>
+            </div>
+
+            <!-- Table Row 3 -->
+            <div class="widget-table-row">
+              <div class="widget-col-task">
+                <span class="widget-row-idx">3.</span>
+                <span class="widget-task-name">Task 2 · High-Fidelity UI Screens</span>
+              </div>
+              <div class="widget-col-date">
+                <div class="widget-date-badge-wrapper" onclick="switchView('plan')" title="Click to open Plan Timeline">
+                  <span class="widget-date-text">6 Oct - 10 Oct</span>
+                  <div class="date-marker-cluster" style="position: static; margin-left: 2px;">
+                    <div class="date-marker-dot other-hol" title="Other Holiday (8 Oct)"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="widget-col-status">
+                <span class="widget-status-pill status-review" onclick="cycleWidgetStatus(this)" title="Click to cycle status">In review</span>
+              </div>
+              <div class="widget-col-assignee" onclick="switchView('roster')" title="Click to manage roster">
+                <div class="widget-avatar-stack">
+                  <div class="widget-avatar-chip" style="background: #0A6DC2;" title="Sagnik D.">S</div>
+                  <div class="widget-avatar-chip" style="background: #8A38F5;" title="Alex Lin">A</div>
+                </div>
+                <span class="widget-assignee-text">Sagnik D., Alex Lin</span>
+              </div>
+            </div>
+
+            <!-- Table Row 4 -->
+            <div class="widget-table-row">
+              <div class="widget-col-task">
+                <span class="widget-row-idx">4.</span>
+                <span class="widget-task-name">Task 4 · Design System &amp; Handover</span>
+              </div>
+              <div class="widget-col-date">
+                <div class="widget-date-badge-wrapper" onclick="switchView('plan')" title="Click to open Plan Timeline">
+                  <span class="widget-date-text">11 Oct - 14 Oct</span>
+                  <div class="date-marker-cluster" style="position: static; margin-left: 2px;">
+                    <div class="date-marker-dot weekend" title="Weekend (11-12 Oct)"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="widget-col-status">
+                <span class="widget-status-pill status-pending" onclick="cycleWidgetStatus(this)" title="Click to cycle status">Yet to start</span>
+              </div>
+              <div class="widget-col-assignee" onclick="switchView('roster')" title="Click to manage roster">
+                <div class="widget-avatar-stack">
+                  <div class="widget-avatar-chip" style="background: #198F51;" title="Jordan P.">J</div>
+                </div>
+                <span class="widget-assignee-text">Jordan P.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Widget Footer with Legend next to last-edited -->
+          <div class="widget-footer-bar">
+            <div class="widget-footer-left">
+              <button class="widget-btn-action" onclick="addWidgetRow()">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Add row
+              </button>
+            </div>
+
+            <div class="widget-footer-right">
+              <!-- Feature Legend next to last edited -->
+              <div class="legend-strip">
+                <div class="legend-item">
+                  <div class="legend-dot weekend"></div>
+                  Weekend
+                </div>
+                <div class="legend-item">
+                  <div class="legend-dot public-hol"></div>
+                  Public Holiday
+                </div>
+                <div class="legend-item">
+                  <div class="legend-dot other-hol"></div>
+                  Other Holiday
+                </div>
+              </div>
+
+              <span class="footer-last-edited">Last edited: You</span>
+
+              <button class="widget-btn-action" onclick="copyWidgetPlan(this)" title="Copy plan to clipboard">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <rect x="5" y="5" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                  <path d="M11 3H4a1 1 0 00-1 1v8" stroke="currentColor" stroke-width="1.2"/>
+                </svg>
+                Copy plan
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+  </div>
+
+  <!-- Interactive Logic for the Redesign Preview -->
+  <script>
+    let currentView = 'widget';
+
+    function switchView(viewName) {
+      currentView = viewName;
+      document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === viewName);
+      });
+      renderViewport();
+    }
+
+    function renderViewport() {
+      const viewport = document.getElementById('active-viewport');
+      if (!viewport) return;
+      viewport.innerHTML = '';
+      viewport.className = 'single-modal-container';
+      const tplId = `tpl-${currentView}`;
+      const template = document.getElementById(tplId);
+      if (template) {
+        viewport.innerHTML = template.innerHTML;
+      }
+    }
+
+    function switchSettingsTab(tabName) {
+      switchView(tabName);
+    }
+
+    // Step duration helper
+    function stepDuration(btn, delta) {
+      const container = btn.closest('.plan-duration-stepper');
+      const input = container.querySelector('.stepper-input');
+      let val = parseFloat(input.value) || 1.0;
+      val = Math.max(0.5, val + delta);
+      input.value = val.toFixed(1);
+    }
+
+    // ─── Holiday Settings Panel ───────────────────────────────────────────
+
+    /** Toggle the holiday settings body open / closed */
+    function toggleHolidaySettings(btn) {
+      const container = btn.closest('.holiday-settings-section');
+      const body = container ? container.querySelector('.holiday-settings-body') : document.getElementById('holiday-body');
+      const chevron = btn.querySelector('.holiday-chevron');
+      if (!body) return;
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'flex';
+      if (chevron) chevron.classList.toggle('open', !isOpen);
+    }
+
+    /** Show / hide the public-holiday day-count stepper row */
+    function togglePublicHolCount(checkbox) {
+      const container = checkbox.closest('.holiday-option-content');
+      const row = container ? container.querySelector('.holiday-day-count-row') : document.getElementById('public-hol-count-row');
+      if (row) row.style.display = checkbox.checked ? 'flex' : 'none';
+      updateMarkersPreview();
+      bumpLastEdited();
+    }
+
+    /** Step the day-count stepper by delta */
+    function stepDayCount(btnOrId, delta) {
+      let input;
+      if (typeof btnOrId === 'string') {
+        input = document.getElementById(btnOrId);
+      } else {
+        const stepper = btnOrId.closest('.day-count-stepper');
+        input = stepper ? stepper.querySelector('.day-count-input') : null;
+      }
+      if (!input) return;
+      let val = parseInt(input.value) || 0;
+      val = Math.max(0, val + delta);
+      input.value = val;
+      bumpLastEdited();
+    }
+
+    /**
+     * Reflects toggle state back to the date-cell preview strip.
+     * When a toggle is off, hide its dot in the example cells.
+     */
+    function updateMarkersPreview() {
+      const weekendOn  = document.getElementById('toggle-weekend')?.checked;
+      const pubHolOn   = document.getElementById('toggle-public-hol')?.checked;
+      const otherHolOn = document.getElementById('toggle-other-hol')?.checked;
+
+      // Weekend dots in task cards
+      document.querySelectorAll('.date-marker-dot.weekend').forEach(d => {
+        d.style.display = weekendOn ? 'block' : 'none';
+      });
+      // Public holiday dots in task cards
+      document.querySelectorAll('.date-marker-dot.public-hol').forEach(d => {
+        d.style.display = pubHolOn ? 'block' : 'none';
+      });
+      // Other holiday dots in task cards
+      document.querySelectorAll('.date-marker-dot.other-hol').forEach(d => {
+        d.style.display = otherHolOn ? 'block' : 'none';
+      });
+
+      // Mirror to legend — dim items whose toggle is off
+      const legendWeekend = document.querySelector('#plan-legend .legend-item:nth-child(1)');
+      const legendPubHol  = document.querySelector('#plan-legend .legend-item:nth-child(2)');
+      const legendOther   = document.querySelector('#plan-legend .legend-item:nth-child(3)');
+      if (legendWeekend) legendWeekend.style.opacity = weekendOn  !== false ? '1' : '0.35';
+      if (legendPubHol)  legendPubHol.style.opacity  = pubHolOn   !== false ? '1' : '0.35';
+      if (legendOther)   legendOther.style.opacity   = otherHolOn !== false ? '1' : '0.35';
+
+      bumpLastEdited();
+    }
+
+    /** Update the "last edited" footer text with a relative timestamp */
+    function bumpLastEdited() {
+      const el = document.getElementById('plan-last-edited');
+      if (el) el.textContent = 'edited just now';
+    }
+
+    // Plan validation
+    function validatePlan() {
+      // In preview, we simulate validation
+    }
+
+    function triggerPlanConfirm(btn) {
+      const originalText = btn.textContent;
+      btn.textContent = '✓ Plan Computed & Synced';
+      btn.style.background = '#27a644';
+      btn.style.color = '#ffffff';
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = '';
+        btn.style.color = '';
+      }, 1400);
+    }
+
+    // Roster Interactions
+    function addRosterMember() {
+      const input = document.getElementById('new-roster-name');
+      const name = input ? input.value.trim() : '';
+      if (!name) return;
+
+      const list = document.getElementById('demo-roster-list');
+      if (list) {
+        const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        const colors = ['#02b8cc', '#6366f1', '#27a644', '#8b5cf6', '#e4f222'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        const textColor = randomColor === '#e4f222' ? '#08090a' : '#ffffff';
+
+        const row = document.createElement('div');
+        row.className = 'roster-member-row';
+        row.innerHTML = `
+          <div class="member-info">
+            <div class="avatar-token" style="background: ${randomColor}; color: ${textColor};">${initials}</div>
+            <span class="member-name">${name}</span>
+          </div>
+          <button class="btn-row-remove" onclick="removeRosterItem(this)">Remove</button>
+        `;
+        list.appendChild(row);
+        input.value = '';
+      }
+    }
+
+    function handleRosterKey(e) {
+      if (e.key === 'Enter') addRosterMember();
+    }
+
+    function removeRosterItem(btn) {
+      const row = btn.closest('.roster-member-row');
+      if (row) row.remove();
+    }
+
+    function toggleRosterEmpty() {
+      const list = document.getElementById('demo-roster-list');
+      const empty = document.getElementById('roster-empty-box');
+      if (!list || !empty) return;
+      if (list.style.display === 'none') {
+        list.style.display = 'flex';
+        empty.style.display = 'none';
+      } else {
+        list.style.display = 'none';
+        empty.style.display = 'flex';
+      }
+    }
+
+    // Template Confirmations
+    function showTemplateConfirm(name, desc) {
+      const box = document.getElementById('template-confirm-box');
+      const msg = document.getElementById('confirm-msg');
+      if (box && msg) {
+        msg.textContent = `Apply "${name}" template? Current rows will be replaced.`;
+        box.style.display = 'flex';
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function applyTemplateConfirm() {
+      const box = document.getElementById('template-confirm-box');
+      if (box) {
+        box.innerHTML = `<span style="color:#27a644; font-size:11px;">✓ Template loaded successfully!</span>`;
+        setTimeout(() => {
+          box.style.display = 'none';
+        }, 1200);
+      }
+    }
+
+    function cancelTemplateConfirm() {
+      const box = document.getElementById('template-confirm-box');
+      if (box) box.style.display = 'none';
+    }
+
+    // Row Tab Helpers
+    function promptDeleteRow(btn) {
+      const parent = btn.parentElement;
+      const label = parent.querySelector('.row-label-text').textContent;
+      parent.innerHTML = `
+        <span class="row-label-text" style="color: var(--color-fog);">Delete this row?</span>
+        <div class="delete-confirm-group">
+          <span class="btn-confirm-yes" onclick="this.closest('.reorder-item-row').remove()">Yes</span>
+          <span class="btn-confirm-cancel" onclick="restoreRow(this, '${label}')">Cancel</span>
+        </div>
+      `;
+    }
+
+    function restoreRow(span, label) {
+      const row = span.closest('.reorder-item-row');
+      row.innerHTML = `
+        <div class="drag-grip" title="Drag to reorder">
+          <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+        </div>
+        <span class="row-label-text">${label}</span>
+        <button class="btn-row-remove" onclick="promptDeleteRow(this)">Remove</button>
+      `;
+    }
+
+    function addNewRowItem() {
+      const list = document.getElementById('rows-container-list');
+      if (!list) return;
+      const count = list.children.length + 1;
+      const row = document.createElement('div');
+      row.className = 'reorder-item-row';
+      row.innerHTML = `
+        <div class="drag-grip" title="Drag to reorder">
+          <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+        </div>
+        <span class="row-label-text">Task ${count}</span>
+        <button class="btn-row-remove" onclick="promptDeleteRow(this)">Remove</button>
+      `;
+      list.appendChild(row);
+    }
+
+    // Structure Column Helpers
+    function removeColumnRow(btn) {
+      const row = btn.closest('.column-structure-row');
+      if (row) row.remove();
+    }
+
+    function addNewColumnRow() {
+      const list = document.getElementById('columns-structure-list');
+      if (!list) return;
+      const row = document.createElement('div');
+      row.className = 'column-structure-row';
+      row.innerHTML = `
+        <div class="drag-grip">
+          <svg width="10" height="14" viewBox="0 0 10 14" fill="none"><circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/><circle cx="2.5" cy="7" r="1.2" fill="currentColor"/><circle cx="7.5" cy="7" r="1.2" fill="currentColor"/><circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+        </div>
+        <input type="text" class="column-name-input" value="Custom Column">
+        <select class="linear-select">
+          <option value="text" selected>Text</option>
+          <option value="status">Status</option>
+          <option value="daterange">Date Range</option>
+          <option value="assignee">Assignee</option>
+        </select>
+        <button class="btn-row-remove" onclick="removeColumnRow(this)">Remove</button>
+      `;
+      list.appendChild(row);
+    }
+
+    // ─── Widget Table Interactive Handlers ────────────────────────────────
+    function cycleWidgetStatus(pill) {
+      const statuses = [
+        { text: 'Done', cls: 'status-done' },
+        { text: 'WIP', cls: 'status-wip' },
+        { text: 'In review', cls: 'status-review' },
+        { text: 'Yet to start', cls: 'status-pending' },
+        { text: 'Blocked', cls: 'status-blocked' }
+      ];
+      const curText = pill.textContent.trim();
+      let nextIdx = (statuses.findIndex(s => s.text === curText) + 1) % statuses.length;
+      if (nextIdx < 0) nextIdx = 0;
+      const next = statuses[nextIdx];
+      pill.textContent = next.text;
+      pill.className = `widget-status-pill ${next.cls}`;
+      bumpWidgetLastEdited();
+    }
+
+    function addWidgetRow() {
+      const containers = document.querySelectorAll('#live-widget-rows, .widget-rows-container');
+      containers.forEach(container => {
+        const count = container.children.length + 1;
+        const newRow = document.createElement('div');
+        newRow.className = 'widget-table-row';
+        newRow.innerHTML = `
+          <div class="widget-col-task">
+            <span class="widget-row-idx">${count}.</span>
+            <span class="widget-task-name">Task ${count} · New Scope Item</span>
+          </div>
+          <div class="widget-col-date">
+            <div class="widget-date-badge-wrapper" onclick="switchView('plan')" title="Click to open Plan Timeline">
+              <span class="widget-date-text">15 Oct - 18 Oct</span>
+            </div>
+          </div>
+          <div class="widget-col-status">
+            <span class="widget-status-pill status-pending" onclick="cycleWidgetStatus(this)">Yet to start</span>
+          </div>
+          <div class="widget-col-assignee" onclick="switchView('roster')">
+            <div class="widget-avatar-stack">
+              <div class="widget-avatar-chip" style="background: #D4860A;" title="Team Member">T</div>
+            </div>
+            <span class="widget-assignee-text">Team Member</span>
+          </div>
+        `;
+        container.appendChild(newRow);
+      });
+      bumpWidgetLastEdited();
+    }
+
+    function copyWidgetPlan(btn) {
+      const original = btn.innerHTML;
+      btn.innerHTML = `<span style="color:#27a644; font-weight:600;">✓ Copied!</span>`;
+      setTimeout(() => {
+        btn.innerHTML = original;
+      }, 1400);
+    }
+
+    function bumpWidgetLastEdited() {
+      document.querySelectorAll('#live-widget-last-edited, .widget-footer-bar .footer-last-edited').forEach(el => {
+        el.textContent = 'Last edited: Just now';
+      });
+    }
+
+    // Initialize default view
+    renderViewport();
+  </script>
+</body>
+</html>

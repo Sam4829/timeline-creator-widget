@@ -1,17 +1,7 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { emit, on } from '@create-figma-plugin/utilities';
-import {
-  Container,
-  VerticalSpace,
-  Button,
-  Textbox,
-  TextboxMultiline,
-  Columns,
-  Text,
-  Dropdown,
-  render
-} from '@create-figma-plugin/ui';
+import { render } from '@create-figma-plugin/ui';
 import { UIMode, ColumnData, RosterMember, DatePickerData, DropdownData } from './types';
 import '!./ui.css';
 
@@ -34,7 +24,13 @@ function Plugin(props: any) {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  if (!mode) return <Container space="medium"><Text>Loading...</Text></Container>;
+  if (!mode) {
+    return (
+      <div className="modal-body" style={{ color: 'var(--text-sub)' }}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -84,6 +80,91 @@ function extractStartDate(value: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : '';
 }
 
+// Team Assignee Avatar Palette index hash — deterministic, mirrors main.tsx:767
+function avatarIndex(name: string): number {
+  return name.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 6;
+}
+
+// Preset template definitions matching the design system
+const TEMPLATE_CARDS = [
+  {
+    name: 'Blank',
+    desc: 'Minimalist layout with single date range',
+    tag: 'Clean',
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <rect x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+      </svg>
+    )
+  },
+  {
+    name: 'Design & Experience',
+    desc: 'Product discovery, UX, UI, and review',
+    tag: 'Popular',
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M1 9.5l4-4 2 2 4-5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+        <path d="M8 2.5h3v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    )
+  },
+  {
+    name: 'Design Sprint',
+    desc: '5-day rapid prototyping framework',
+    tag: '5 Days',
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M2 10.5V2l7 3.5-7 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  },
+  {
+    name: 'Product Design',
+    desc: 'Feature lifecycle from spec to dev handoff',
+    tag: 'Standard',
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/>
+        <path d="M6 3.5v2.5l1.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    )
+  },
+  {
+    name: 'Brand/Marketing',
+    desc: 'Campaign timeline & multi-channel deliverables',
+    tag: 'Creative',
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M10 2L3 6l7 4V2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+      </svg>
+    )
+  },
+  {
+    name: 'UX Research',
+    desc: 'Participant synthesis & qualitative studies',
+    tag: 'Research',
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <circle cx="5.5" cy="5.5" r="3.5" stroke="currentColor" strokeWidth="1.2"/>
+        <path d="M8.5 8.5L10.5 10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    )
+  },
+  {
+    name: 'Design Systems',
+    desc: 'Component library build-out & governance',
+    tag: 'Systems',
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <rect x="2" y="2" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+        <rect x="6.5" y="2" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+        <rect x="2" y="6.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+        <rect x="6.5" y="6.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+      </svg>
+    )
+  }
+];
+
 function DatePicker({ rowId, colId, colName, rowIdentifier, currentValue }: DatePickerData) {
   const [initialStart, initialEnd] = parseISODateRange(currentValue);
   const [startDate, setStartDate] = useState(initialStart);
@@ -107,31 +188,47 @@ function DatePicker({ rowId, colId, colName, rowIdentifier, currentValue }: Date
   const submitDisabled = !startDate && !endDate;
 
   return (
-    <Container space="medium">
-      <VerticalSpace space="small" />
-      <Text style={{ fontWeight: 600, fontSize: '13px' }}>
-        {rowIdentifier} - {colName}
-      </Text>
-      <hr style={{ border: 'none', borderTop: '1px solid var(--figma-color-border, #383838)', margin: '8px 0' }} />
-      <Text style={{ color: 'var(--figma-color-text-secondary, rgba(255, 255, 255, 0.6))', fontSize: '11px' }}>
-        Date Range:
-      </Text>
-      <VerticalSpace space="small" />
-      <Columns space="small">
-        <input type="date" value={startDate} onChange={e => setStartDate((e.target as HTMLInputElement).value)} style={{ width: '100%', padding: '4px' }} />
-        <input type="date" value={endDate} onChange={e => setEndDate((e.target as HTMLInputElement).value)} style={{ width: '100%', padding: '4px' }} />
-      </Columns>
-      <VerticalSpace space="large" />
-      <Button fullWidth onClick={handleSubmit} disabled={submitDisabled}>
+    <div className="modal-body" style={{ gap: '12px' }}>
+      <div>
+        <div className="modal-heading">
+          {rowIdentifier} &ndash; {colName}
+        </div>
+        <div style={{ color: 'var(--text-sub)', fontSize: '11px' }}>
+          Date Range:
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <input
+          type="date"
+          value={startDate}
+          onChange={e => setStartDate((e.target as HTMLInputElement).value)}
+          className="form-date-input"
+          style={{ flex: 1 }}
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={e => setEndDate((e.target as HTMLInputElement).value)}
+          className="form-date-input"
+          style={{ flex: 1 }}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn-primary"
+        style={{ width: '100%', marginTop: '6px' }}
+        onClick={handleSubmit}
+        disabled={submitDisabled}
+      >
         Set Date
-      </Button>
-    </Container>
+      </button>
+    </div>
   );
 }
 
 function Settings({ initialColumns, rows: initialRows, roster: initialRoster, themeName: initialTheme }: { initialColumns: (ColumnData & { id: string })[], rows?: any[], roster: ({ id: string } & RosterMember)[], themeName: 'dark' | 'light' }) {
   // F10: currentTheme state removed — theme is now a native property-menu dropdown on the widget.
-  const [tab, setTab] = useState<'roster' | 'templates' | 'rows' | 'structure'>('roster');
+  const [tab, setTab] = useState<'roster' | 'templates' | 'rows' | 'columns'>('roster');
   const [localRoster, setLocalRoster] = useState(initialRoster);
   const [localColumns, setLocalColumns] = useState(initialColumns);
   // F9: Local column name state — edits stay in the iframe until blur to avoid
@@ -208,288 +305,437 @@ function Settings({ initialColumns, rows: initialRows, roster: initialRoster, th
     });
   };
 
-  const columnTypes = [
-    { value: 'text', text: 'Text' },
-    { value: 'daterange', text: 'Date Range' },
-    { value: 'status', text: 'Status' },
-    { value: 'assignee', text: 'Assignee' }
-  ];
-
   return (
-    <Container space="medium">
-      <div className="custom-tab-bar">
-        <div className={`custom-tab ${tab === 'roster' ? 'active' : ''}`} onClick={() => setTab('roster')}>
+    <div className="settings-container">
+      <div className="seg-tabs">
+        <button
+          type="button"
+          className={`seg-tab ${tab === 'roster' ? 'active' : ''}`}
+          onClick={() => setTab('roster')}
+        >
           Roster
-        </div>
-        <div className={`custom-tab ${tab === 'templates' ? 'active' : ''}`} onClick={() => setTab('templates')}>
+        </button>
+        <button
+          type="button"
+          className={`seg-tab ${tab === 'templates' ? 'active' : ''}`}
+          onClick={() => setTab('templates')}
+        >
           Templates
-        </div>
-        <div className={`custom-tab ${tab === 'rows' ? 'active' : ''}`} onClick={() => setTab('rows')}>
+        </button>
+        <button
+          type="button"
+          className={`seg-tab ${tab === 'rows' ? 'active' : ''}`}
+          onClick={() => setTab('rows')}
+        >
           Rows
-        </div>
-        <div className={`custom-tab ${tab === 'structure' ? 'active' : ''}`} onClick={() => setTab('structure')}>
-          Structure
-        </div>
+        </button>
+        <button
+          type="button"
+          className={`seg-tab ${tab === 'columns' ? 'active' : ''}`}
+          onClick={() => setTab('columns')}
+        >
+          Columns
+        </button>
       </div>
-      <VerticalSpace space="medium" />
 
       {warningMsg && (
-        <div style={{ padding: '8px', background: 'var(--figma-color-bg-danger, #ffebee)', color: 'var(--figma-color-text-danger, #c62828)', borderRadius: '4px', marginBottom: '16px', fontSize: '12px' }}>
+        <div className="warning-banner" style={{ marginTop: '12px' }}>
           {warningMsg}
         </div>
       )}
 
       {tab === 'roster' && (
-        <div>
-          {localRoster.length === 0 && (
-            <div className="roster-empty">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: '12px' }}>
-                <circle cx="20" cy="20" r="19" stroke="var(--figma-color-border)" strokeWidth="2"/>
-                <path d="M20 23C22.2091 23 24 21.2091 24 19C24 16.7909 22.2091 15 20 15C17.7909 15 16 16.7909 16 19C16 21.2091 17.7909 23 20 23Z" stroke="var(--figma-color-text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M26 29C26 26.7909 23.3137 25 20 25C16.6863 25 14 26.7909 14 29" stroke="var(--figma-color-text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <div className="tab-content-area">
+          {localRoster.length === 0 ? (
+            <div className="empty-state">
+              <svg width="36" height="36" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.6 }}>
+                <circle cx="20" cy="20" r="19" stroke="var(--border-hairline)" strokeWidth="2"/>
+                <path d="M20 23C22.2091 23 24 21.2091 24 19C24 16.7909 22.2091 15 20 15C17.7909 15 16 16.7909 16 19C16 21.2091 17.7909 23 20 23Z" stroke="var(--text-sub)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M26 29C26 26.7909 23.3137 25 20 25C16.6863 25 14 26.7909 14 29" stroke="var(--text-sub)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              No members in roster yet.
+              <div style={{ fontWeight: 500, color: 'var(--text-body)' }}>No members in roster yet.</div>
+              <div style={{ fontSize: '10px', color: 'var(--text-sub)' }}>Team assignees added here will be available in timeline dropdowns.</div>
+            </div>
+          ) : (
+            <div className="roster-list">
+              {localRoster.map(r => (
+                <div key={r.id} className="roster-row">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className={`avatar avatar-${avatarIndex(r.name)}`}>
+                      {r.name.trim() ? r.name.trim()[0].toUpperCase() : '?'}
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-body)' }}>{r.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-row-remove"
+                    onClick={() => emit('remove-roster-name', r.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
             </div>
           )}
-          {localRoster.map(r => (
-            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', alignItems: 'center' }}>
-              <Text>{r.name}</Text>
-              <div style={{ cursor: 'pointer', color: 'var(--figma-color-text-danger, #ff6b6b)' }} onClick={() => emit('remove-roster-name', r.id)}>
-                 Remove
-              </div>
-            </div>
-          ))}
-          <VerticalSpace space="medium" />
-          <div style={{ display: 'flex', gap: '8px' }}>
+
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
             <input
               ref={rosterInputRef}
               type="text"
               value={newName}
               onInput={(e) => setNewName((e.target as HTMLInputElement).value)}
-              placeholder="New name"
-              style={{
-                flex: 1,
-                padding: '6px 8px',
-                border: '1px solid var(--figma-color-border)',
-                borderRadius: '4px',
-                background: 'var(--figma-color-bg-secondary)',
-                color: 'var(--figma-color-text)',
-                fontSize: '11px',
-                outline: 'none'
-              }}
+              placeholder="New member name..."
+              className="form-input"
+              style={{ flex: 1 }}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAddName(); }}
             />
-            <Button onClick={handleAddName}>Add</Button>
+            <button
+              type="button"
+              className="btn-ghost-dashed"
+              style={{ whiteSpace: 'nowrap' }}
+              onClick={handleAddName}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+              Add member
+            </button>
           </div>
         </div>
       )}
 
       {tab === 'rows' && (
-        <div>
-          {localRows.length === 0 && (
-            <div className="roster-empty">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: '12px' }}>
-                <circle cx="20" cy="20" r="19" stroke="var(--figma-color-border)" strokeWidth="2"/>
-                <path d="M20 23C22.2091 23 24 21.2091 24 19C24 16.7909 22.2091 15 20 15C17.7909 15 16 16.7909 16 19C16 21.2091 17.7909 23 20 23Z" stroke="var(--figma-color-text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M26 29C26 26.7909 23.3137 25 20 25C16.6863 25 14 26.7909 14 29" stroke="var(--figma-color-text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+        <div className="tab-content-area">
+          {localRows.length === 0 ? (
+            <div className="empty-state">
               No rows added yet.
             </div>
-          )}
-          {localRows.map((r, i) => (
-            <div
-              key={r.id}
-              draggable={true}
-              onDragStart={(e) => {
-                setDraggedRowId(r.id);
-                if (e.dataTransfer) {
-                  e.dataTransfer.effectAllowed = 'move';
-                  e.dataTransfer.setData('text/plain', r.id);
-                }
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-                setDragOverRowId(r.id);
-              }}
-              onDragLeave={() => {
-                if (dragOverRowId === r.id) setDragOverRowId(null);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const droppedId = e.dataTransfer?.getData('text/plain');
-                if (droppedId && droppedId !== r.id) {
-                  const targetIndex = i;
-                  emit('reorder-row-drop', { draggedId: droppedId, targetIndex });
-                }
-                setDraggedRowId(null);
-                setDragOverRowId(null);
-              }}
-              onDragEnd={() => {
-                setDraggedRowId(null);
-                setDragOverRowId(null);
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0',
-                borderBottom: '1px solid var(--figma-color-border, #f0f0f0)',
-                opacity: draggedRowId === r.id ? 0.4 : 1,
-                backgroundColor: dragOverRowId === r.id ? 'var(--figma-color-bg-hover, rgba(0,0,0,0.03))' : 'transparent',
-                boxShadow: dragOverRowId === r.id ? 'inset 0 0 0 1px var(--figma-color-border-brand, #18A0FB)' : 'none',
-                transition: 'background-color 0.1s, box-shadow 0.1s'
-              }}
-            >
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '16px',
-                cursor: draggedRowId === r.id ? 'grabbing' : 'grab',
-                color: 'var(--figma-color-text-tertiary, #b3b3b3)'
-              }}>
-                ⣿
-              </div>
-              <div style={{ flex: 1 }}>
-                <Text style={{ color: 'var(--figma-color-text)' }}>{getRowLabel(r, localColumns, i)}</Text>
-              </div>
-              <div style={{ width: 'auto', textAlign: 'right', display: 'flex', gap: '8px' }}>
-                {confirmRemoveRowId === r.id ? (
-                  <Fragment>
-                    <span style={{ fontSize: '12px', color: 'var(--figma-color-text)' }}>Delete?</span>
-                    <span style={{ cursor: 'pointer', color: 'var(--figma-color-text-danger, #ff6b6b)', fontWeight: 'bold', fontSize: '12px' }} onClick={() => { emit('remove-row', r.id); setConfirmRemoveRowId(null); }}>Yes</span>
-                    <span style={{ cursor: 'pointer', color: 'var(--figma-color-text-secondary, #b3b3b3)', fontSize: '12px' }} onClick={() => setConfirmRemoveRowId(null)}>Cancel</span>
-                  </Fragment>
-                ) : (
-                  <span style={{ cursor: 'pointer', color: 'var(--figma-color-text-danger, #ff6b6b)', fontSize: '12px' }} onClick={() => setConfirmRemoveRowId(r.id)}>Remove</span>
-                )}
-              </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {localRows.map((r, i) => (
+                <div
+                  key={r.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    setDraggedRowId(r.id);
+                    if (e.dataTransfer) {
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', r.id);
+                    }
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+                    setDragOverRowId(r.id);
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverRowId === r.id) setDragOverRowId(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const droppedId = e.dataTransfer?.getData('text/plain');
+                    if (droppedId && droppedId !== r.id) {
+                      const targetIndex = i;
+                      emit('reorder-row-drop', { draggedId: droppedId, targetIndex });
+                    }
+                    setDraggedRowId(null);
+                    setDragOverRowId(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedRowId(null);
+                    setDragOverRowId(null);
+                  }}
+                  className="list-item"
+                  style={{
+                    opacity: draggedRowId === r.id ? 0.4 : 1,
+                    backgroundColor: dragOverRowId === r.id ? 'var(--figma-color-bg-hover, rgba(255,255,255,0.05))' : undefined,
+                    boxShadow: dragOverRowId === r.id ? 'inset 0 0 0 1px var(--accent-focus-ring)' : undefined,
+                  }}
+                >
+                  <div
+                    className="drag-handle"
+                    style={{ cursor: draggedRowId === r.id ? 'grabbing' : 'grab' }}
+                  >
+                    <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
+                      <circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/>
+                      <circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/>
+                      <circle cx="2.5" cy="7" r="1.2" fill="currentColor"/>
+                      <circle cx="7.5" cy="7" r="1.2" fill="currentColor"/>
+                      <circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/>
+                      <circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-body)', fontWeight: 500 }}>
+                      {getRowLabel(r, localColumns, i)}
+                    </span>
+                  </div>
+                  <div>
+                    {confirmRemoveRowId === r.id ? (
+                      <span className="inline-confirm">
+                        <span className="confirm-label">Delete?</span>
+                        <span
+                          className="confirm-yes"
+                          onClick={() => { emit('remove-row', r.id); setConfirmRemoveRowId(null); }}
+                        >
+                          Yes
+                        </span>
+                        <span
+                          className="confirm-cancel"
+                          onClick={() => setConfirmRemoveRowId(null)}
+                        >
+                          Cancel
+                        </span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-row-remove"
+                        onClick={() => setConfirmRemoveRowId(r.id)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-          <VerticalSpace space="medium" />
-          <Button onClick={() => emit('add-row')}>+ Add row</Button>
+          )}
+
+          <div>
+            <button
+              type="button"
+              className="btn-ghost-dashed"
+              style={{ width: '100%' }}
+              onClick={() => emit('add-row')}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+              Add row
+            </button>
+          </div>
         </div>
       )}
 
-      {tab === 'structure' && (
-        <div>
-          {localColumns.map((c, i) => {
-            const isFirst = i === 0;
-            return (
-              <div 
-                key={c.id} 
-                draggable={!isFirst}
-                onDragStart={(e) => {
-                  if (isFirst) { e.preventDefault(); return; }
-                  setDraggedId(c.id);
-                  if (e.dataTransfer) {
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', c.id);
-                  }
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-                  setDragOverId(c.id);
-                }}
-                onDragLeave={() => {
-                  if (dragOverId === c.id) setDragOverId(null);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const droppedId = e.dataTransfer?.getData('text/plain');
-                  if (droppedId && droppedId !== c.id) {
-                    const targetIndex = Math.max(1, i); // Clamp to position 2 (index 1)
-                    emit('reorder-column-drop', { draggedId: droppedId, targetIndex });
-                  }
-                  setDraggedId(null);
-                  setDragOverId(null);
-                }}
-                onDragEnd={() => {
-                  setDraggedId(null);
-                  setDragOverId(null);
-                }}
-                style={{ 
-                  display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', 
-                  borderBottom: '1px solid var(--figma-color-border, #f0f0f0)',
-                  opacity: draggedId === c.id ? 0.4 : 1,
-                  backgroundColor: dragOverId === c.id ? 'var(--figma-color-bg-hover, rgba(0,0,0,0.03))' : 'transparent',
-                  boxShadow: dragOverId === c.id ? 'inset 0 0 0 1px var(--figma-color-border-brand, #18A0FB)' : 'none',
-                  transition: 'background-color 0.1s, box-shadow 0.1s'
-                }}
-              >
-                <div style={{ 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: '16px',
-                  cursor: isFirst ? 'default' : (draggedId === c.id ? 'grabbing' : 'grab'), 
-                  color: isFirst ? 'transparent' : 'var(--figma-color-text-tertiary, #b3b3b3)' 
-                }}>
-                  {isFirst ? '' : '⣿'}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <input
-                    type="text"
-                    value={localColNames[c.id] ?? c.name}
-                    onChange={e => {
-                      // F9: Update local state only — no widget emit per keystroke.
-                      const val = (e.target as HTMLInputElement).value;
-                      setLocalColNames(prev => ({ ...prev, [c.id]: val }));
-                    }}
-                    onBlur={e => {
-                      // F9: Emit to widget only on blur (commit).
-                      emit('update-column', { id: c.id, updates: { name: (e.target as HTMLInputElement).value } });
-                    }}
-                    style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--figma-color-border)', borderRadius: '4px', background: 'var(--figma-color-bg-secondary)', color: 'var(--figma-color-text)', outline: 'none' }}
-                  />
-                </div>
-                <div style={{ width: '100px' }}>
-                  <Dropdown 
-                    options={columnTypes} 
-                    value={c.type} 
-                    onChange={e => emit('update-column', { id: c.id, updates: { type: e.currentTarget.value } })}
-                    disabled={c.locked}
-                  />
-                </div>
-                <div style={{ width: '50px', textAlign: 'right' }}>
-                  {!c.locked && (
-                    <span style={{ cursor: 'pointer', color: 'var(--figma-color-text-danger, #ff6b6b)', fontSize: '12px' }} onClick={() => emit('remove-column', c.id)}>Remove</span>
+      {tab === 'columns' && (
+        <div className="tab-content-area">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {localColumns.map((c, i) => {
+              const isFirst = i === 0;
+              return (
+                <div
+                  key={c.id}
+                  draggable={!isFirst}
+                  onDragStart={(e) => {
+                    if (isFirst) { e.preventDefault(); return; }
+                    setDraggedId(c.id);
+                    if (e.dataTransfer) {
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', c.id);
+                    }
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+                    setDragOverId(c.id);
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverId === c.id) setDragOverId(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const droppedId = e.dataTransfer?.getData('text/plain');
+                    if (droppedId && droppedId !== c.id) {
+                      const targetIndex = Math.max(1, i); // Clamp to position 2 (index 1)
+                      emit('reorder-column-drop', { draggedId: droppedId, targetIndex });
+                    }
+                    setDraggedId(null);
+                    setDragOverId(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedId(null);
+                    setDragOverId(null);
+                  }}
+                  className="list-item"
+                  style={{
+                    opacity: draggedId === c.id ? 0.4 : 1,
+                    backgroundColor: dragOverId === c.id ? 'var(--figma-color-bg-hover, rgba(255,255,255,0.05))' : undefined,
+                    boxShadow: dragOverId === c.id ? 'inset 0 0 0 1px var(--accent-focus-ring)' : undefined,
+                  }}
+                >
+                  <div
+                    className="drag-handle"
+                    style={{ cursor: isFirst ? 'default' : (draggedId === c.id ? 'grabbing' : 'grab'), color: isFirst ? 'var(--text-sub)' : undefined }}
+                  >
+                    {isFirst ? (
+                      <svg width="10" height="12" viewBox="0 0 10 12" fill="none">
+                        <rect x="1.5" y="4.5" width="7" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                        <path d="M3 4.5V3a2 2 0 114 0v1.5" stroke="currentColor" strokeWidth="1.2"/>
+                      </svg>
+                    ) : (
+                      <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
+                        <circle cx="2.5" cy="2.5" r="1.2" fill="currentColor"/>
+                        <circle cx="7.5" cy="2.5" r="1.2" fill="currentColor"/>
+                        <circle cx="2.5" cy="7" r="1.2" fill="currentColor"/>
+                        <circle cx="7.5" cy="7" r="1.2" fill="currentColor"/>
+                        <circle cx="2.5" cy="11.5" r="1.2" fill="currentColor"/>
+                        <circle cx="7.5" cy="11.5" r="1.2" fill="currentColor"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <input
+                      type="text"
+                      value={localColNames[c.id] ?? c.name}
+                      readOnly={c.locked}
+                      onChange={e => {
+                        // F9: Update local state only — no widget emit per keystroke.
+                        const val = (e.target as HTMLInputElement).value;
+                        setLocalColNames(prev => ({ ...prev, [c.id]: val }));
+                      }}
+                      onBlur={e => {
+                        // F9: Emit to widget only on blur (commit).
+                        emit('update-column', { id: c.id, updates: { name: (e.target as HTMLInputElement).value } });
+                      }}
+                      className="form-input"
+                      style={{
+                        width: '100%',
+                        background: c.locked ? 'transparent' : undefined,
+                        borderColor: c.locked ? 'transparent' : undefined,
+                        cursor: c.locked ? 'default' : undefined
+                      }}
+                    />
+                  </div>
+                  {c.locked ? (
+                    <span className="locked-badge">Text (Primary)</span>
+                  ) : (
+                    <div style={{ width: '104px' }}>
+                      <select
+                        className="form-select"
+                        value={c.type}
+                        onChange={e => emit('update-column', { id: c.id, updates: { type: e.currentTarget.value } })}
+                        disabled={c.locked}
+                        style={{ width: '100%' }}
+                      >
+                        <option value="daterange">Date Range</option>
+                        <option value="text">Text</option>
+                        <option value="status">Status</option>
+                        <option value="assignee">Assignee</option>
+                      </select>
+                    </div>
                   )}
+                  <div style={{ width: '50px', textAlign: 'right' }}>
+                    {!c.locked && (
+                      <button
+                        type="button"
+                        className="btn-row-remove"
+                        onClick={() => emit('remove-column', c.id)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-          <VerticalSpace space="medium" />
-          <Button onClick={() => emit('add-column')}>+ Add column</Button>
+              );
+            })}
+          </div>
+
+          <div>
+            <button
+              type="button"
+              className="btn-ghost-dashed"
+              style={{ width: '100%' }}
+              onClick={() => emit('add-column')}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+              Add column
+            </button>
+          </div>
         </div>
       )}
 
       {tab === 'templates' && (
-        <div>
-          <Text style={{ color: 'var(--figma-color-text-secondary, #666)', marginBottom: '16px', display: 'block' }}>Select a preset timeline structure. Warning: this replaces current data.</Text>
-          {/* F10: Theme toggle removed — theme is now the native property-menu dropdown. */}
+        <div className="tab-content-area">
+          <div className="template-banner">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: '#F7D15F', flexShrink: 0, marginTop: '2px' }}>
+              <path d="M7 1.5L12.5 11.5H1.5L7 1.5Z" stroke="currentColor" strokeWidth="1.2"/>
+              <path d="M7 5.5v3M7 10h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            <div>Select a preset timeline structure. Replaces milestone columns but keeps your existing task names.</div>
+          </div>
+
           {confirmPending ? (
-            <div style={{ padding: '12px', background: 'var(--figma-color-bg-secondary, #f5f5f5)', border: '1px solid var(--figma-color-border, #e0e0e0)', borderRadius: '6px' }}>
-              <Text style={{ display: 'block', marginBottom: '12px', fontSize: '12px', color: 'var(--figma-color-text, #000)' }}>
-                Apply <strong>{confirmPending}</strong> template? This will replace all current columns and rows.
-              </Text>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Button danger fullWidth onClick={handleConfirmApply}>Yes, apply</Button>
-                <Button secondary fullWidth onClick={handleCancelApply}>Cancel</Button>
+            <div className="toast-danger">
+              <div>
+                Apply <strong>{confirmPending}</strong> template? Replaces milestone columns but keeps your existing task names.
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{
+                    flex: 1,
+                    background: 'var(--status-blocked-bg)',
+                    border: '1px solid var(--status-blocked-fg)',
+                    color: 'var(--status-blocked-fg)'
+                  }}
+                  onClick={handleConfirmApply}
+                >
+                  Yes, apply
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ flex: 1 }}
+                  onClick={handleCancelApply}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('Blank')}>Blank</Button>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('Design & Experience')}>Design & Experience</Button>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('Design Sprint')}>Design Sprint</Button>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('Product Design')}>Product Design</Button>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('Brand/Marketing')}>Brand/Marketing</Button>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('UX Research')}>UX Research</Button>
-              <Button secondary fullWidth onClick={() => handleApplyTemplate('Design Systems')}>Design Systems</Button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {TEMPLATE_CARDS.map(t => (
+                <div
+                  key={t.name}
+                  className="template-card"
+                  onClick={() => handleApplyTemplate(t.name)}
+                >
+                  <div className="template-left">
+                    <div className="template-icon-wrap">
+                      {t.icon}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-header)' }}>
+                        {t.name}
+                      </span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-sub)' }}>
+                        {t.desc}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="template-tag">{t.tag}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
       )}
 
-      <VerticalSpace space="large" />
-      <Button fullWidth onClick={() => emit('close-settings')}>Done</Button>
-    </Container>
+      <div className="modal-footer">
+        <button
+          type="button"
+          className="btn-primary"
+          style={{ width: '100%' }}
+          onClick={() => emit('close-settings')}
+        >
+          Done
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -517,61 +763,62 @@ function CellDropdown({ rowId, colId, colName, rowIdentifier, type, options, cur
   };
 
   return (
-    <Container space="small">
-      <VerticalSpace space="small" />
-      <Text style={{ fontWeight: 600, fontSize: '13px' }}>
-        {rowIdentifier} - {colName}
-      </Text>
-      <hr style={{ border: 'none', borderTop: '1px solid var(--figma-color-border, #383838)', margin: '8px 0' }} />
-      <Text style={{ color: 'var(--figma-color-text-secondary, rgba(255, 255, 255, 0.6))', fontSize: '11px' }}>
-        {type === 'assignee' ? 'Assignee:' : 'Status:'}
-      </Text>
-      <VerticalSpace space="small" />
+    <div className="modal-body" style={{ paddingBottom: type === 'assignee' ? '64px' : '16px' }}>
+      <div>
+        <div className="modal-heading">
+          {rowIdentifier} &ndash; {colName}
+        </div>
+        <div style={{ color: 'var(--text-sub)', fontSize: '11px', marginBottom: '10px' }}>
+          {type === 'assignee' ? 'Assignees:' : 'Status:'}
+        </div>
+      </div>
+
       {options.length === 0 ? (
-        <Text style={{ color: 'var(--figma-color-text-secondary, #666)' }}>No members available. Add them in Settings.</Text>
+        <div style={{ color: 'var(--text-sub)', fontSize: '11px', padding: '16px 0', textAlign: 'center' }}>
+          No members available. Add them in Settings.
+        </div>
       ) : (
-        <div style={{ paddingBottom: type === 'assignee' ? '50px' : '0' }}>
-          {options.map(opt => (
-            <div
-              key={opt}
-              style={{
-                padding: '8px',
-                cursor: 'pointer',
-                background: selected.includes(opt) ? 'var(--figma-color-bg-selected, rgba(24, 160, 251, 0.1))' : 'transparent',
-                color: selected.includes(opt) ? 'var(--figma-color-text-brand, #18A0FB)' : 'var(--figma-color-text, #000)',
-                borderRadius: '4px',
-                marginBottom: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-              onClick={() => toggleOption(opt)}
-            >
-              {type === 'assignee' && (
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  border: '1px solid currentColor',
-                  borderRadius: '2px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {selected.includes(opt) && <div style={{ width: '8px', height: '8px', background: 'currentColor' }} />}
-                </div>
-              )}
-              <Text style={{ color: 'inherit' }}>{opt}</Text>
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {options.map(opt => {
+            const isSelected = selected.includes(opt);
+            return (
+              <div
+                key={opt}
+                className={`dropdown-item ${isSelected ? 'selected' : ''}`}
+                onClick={() => toggleOption(opt)}
+              >
+                {type === 'assignee' && (
+                  <Fragment>
+                    <div className="checkbox-box">
+                      {isSelected && <div className="checkbox-inner" />}
+                    </div>
+                    <div className={`avatar avatar-${avatarIndex(opt)}`}>
+                      {opt.trim() ? opt.trim()[0].toUpperCase() : '?'}
+                    </div>
+                  </Fragment>
+                )}
+                <span style={{ color: isSelected ? 'var(--text-header)' : 'var(--text-body)', fontWeight: isSelected ? 500 : 400 }}>
+                  {opt}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
-      
+
       {type === 'assignee' && options.length > 0 && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '16px', background: 'var(--figma-color-bg, #fff)' }}>
-          <Button fullWidth onClick={handleDone}>Done</Button>
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ width: '100%' }}
+            onClick={handleDone}
+          >
+            Done
+          </button>
         </div>
       )}
-    </Container>
+    </div>
   );
 }
 
@@ -631,23 +878,25 @@ function CopyClipboard({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <Container space="medium">
-      <VerticalSpace space="medium" />
-      <Text style={{ textAlign: 'center', display: 'block' }}>
+    <div className="modal-body" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '12px', minHeight: '120px' }}>
+      <div style={{ color: 'var(--text-body)', fontSize: '11px' }}>
         {status === 'failed'
           ? 'Could not copy automatically. Click below to copy.'
           : 'Copying timeline to clipboard...'}
-      </Text>
-      <VerticalSpace space="medium" />
+      </div>
       {status === 'failed' && (
-        <Button fullWidth onClick={performCopy}>
+        <button
+          type="button"
+          className="btn-primary"
+          style={{ width: '100%' }}
+          onClick={performCopy}
+        >
           Click to Copy
-        </Button>
+        </button>
       )}
-    </Container>
+    </div>
   );
 }
-
 
 // ─── Plan Popup ──────────────────────────────────────────────────────────────
 
@@ -823,62 +1072,99 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
     setComputed(null);
   };
 
-
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255, 255, 255, 0.9)' }}>
-      <div style={{ overflowY: 'auto', maxHeight: showConfirm ? 'calc(100vh - 120px)' : 'calc(100vh - 70px)', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ fontFamily: 'var(--font-family)', fontSize: '11px', color: 'var(--text-body)' }}>
+      <div
+        className="plan-container"
+        style={{
+          maxHeight: showConfirm ? 'calc(100vh - 110px)' : 'calc(100vh - 70px)',
+          paddingBottom: showConfirm ? '110px' : '72px'
+        }}
+      >
         {planRows.map((pr, ri) => (
-          <div key={pr.rowId} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {ri > 0 && <div style={{ height: '1px', background: 'var(--figma-color-border, #383838)', marginBottom: '4px' }} />}
-            <div>
-              <span style={{ fontWeight: 600, fontSize: '12px', color: '#FFFFFF' }}>{pr.label}</span>
+          <div key={pr.rowId} className="plan-card">
+            <div className="plan-card-header">
+              <div className="plan-task-title">
+                {pr.label}
+                <span className="plan-task-idx">Row {ri + 1}</span>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500 }}>
-                  Start Date{ri === 0 ? <span style={{ color: '#F26C55' }}> *</span> : ''}
+
+            <div className="plan-date-row">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span className="plan-date-label">
+                  Start Date{ri === 0 ? <span style={{ color: 'var(--status-blocked-fg)' }}> *</span> : ''}
                 </span>
                 {ri > 0 && !pr.startDate && (
-                  <span style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)', fontStyle: 'italic' }}>(Chains from prev row, if left blank)</span>
+                  <span className="plan-chain-hint">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <path d="M3 2v5a3 3 0 003 3h4M7 7l3 3-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Chains from prev row if empty
+                  </span>
                 )}
               </div>
               <input
                 type="date"
                 value={pr.startDate}
                 onChange={e => updateStartDate(ri, (e.target as HTMLInputElement).value)}
-                className="plan-input"
-                style={{ width: '140px', padding: '6px 8px', borderRadius: '5px', border: '1px solid var(--figma-color-border, #383838)', background: '#2C2C2C', color: '#FFFFFF', outline: 'none' }}
+                className="form-date-input"
+                style={{ width: '140px' }}
               />
             </div>
+
             <div className="plan-table-card">
               <table className="plan-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Column</th>
-                    <th style={{ textAlign: 'right', width: '80px' }}>Days</th>
+                    <th>Timeline Column</th>
+                    <th>Duration</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {daterangeCols.map((col: any) => (
-                    <tr key={col.id}>
-                      <td>{col.name}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="plan-number-box">
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M4.5 2V10M7.5 2V10M2.5 4.5H9.5M2.5 7.5H9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                          </svg>
-                          <input
-                            type="number"
-                            min="0.5"
-                            step="0.5"
-                            value={pr.durations[col.id] ?? '1'}
-                            onChange={e => updateDuration(ri, col.id, (e.target as HTMLInputElement).value)}
-                            className="plan-number-input"
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {daterangeCols.map((col: any) => {
+                    const currentDur = pr.durations[col.id] ?? '1';
+                    return (
+                      <tr key={col.id}>
+                        <td>{col.name}</td>
+                        <td>
+                          <div className="plan-duration-stepper">
+                            <button
+                              type="button"
+                              className="stepper-btn"
+                              onClick={() => {
+                                const cur = parseFloat(currentDur) || 1;
+                                const next = Math.max(0.5, cur - 0.5);
+                                updateDuration(ri, col.id, String(next));
+                              }}
+                            >
+                              &minus;
+                            </button>
+                            <input
+                              type="number"
+                              min="0.5"
+                              step="0.5"
+                              value={currentDur}
+                              onChange={e => updateDuration(ri, col.id, (e.target as HTMLInputElement).value)}
+                              className="stepper-input"
+                            />
+                            <span className="stepper-unit">d</span>
+                            <button
+                              type="button"
+                              className="stepper-btn"
+                              onClick={() => {
+                                const cur = parseFloat(currentDur) || 1;
+                                const next = cur + 0.5;
+                                updateDuration(ri, col.id, String(next));
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -888,34 +1174,47 @@ function PlanPopup({ rows, columns }: { rows: any[], columns: any[] }) {
 
       {/* Confirmation banner */}
       {showConfirm ? (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: '#2C2C2C', borderTop: '1px solid #383838', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ fontSize: '11px', color: '#FFCD29' }}>
-            ⚠️ This will overwrite existing date values.
+        <div className="modal-footer" style={{ background: 'var(--surface-sub)' }}>
+          <div style={{ fontSize: '11px', color: '#F7D15F', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>⚠️</span> This will overwrite existing date values.
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <Button danger fullWidth onClick={handleConfirm}>Apply Plan</Button>
-            <Button secondary fullWidth onClick={handleCancel}>Cancel</Button>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{
+                flex: 1,
+                background: 'var(--status-blocked-bg)',
+                border: '1px solid var(--status-blocked-fg)',
+                color: 'var(--status-blocked-fg)'
+              }}
+              onClick={handleConfirm}
+            >
+              Apply Plan
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ flex: 1 }}
+              onClick={handleCancel}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       ) : (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', background: '#1E1E1E', borderTop: '1px solid #383838', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="modal-footer">
           {row1StartMissing && (
-            <div style={{ fontSize: '11px', color: '#F26C55' }}>* Start date is required for the first row</div>
+            <div style={{ fontSize: '11px', color: 'var(--status-blocked-fg)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>*</span> Start date is required for the first row
+            </div>
           )}
           <button
+            type="button"
+            className="btn-primary"
+            style={{ width: '100%' }}
             onClick={handleApplyClick}
             disabled={applyDisabled}
-            style={{
-              width: '100%',
-              height: '32px',
-              borderRadius: '5px',
-              border: 'none',
-              background: applyDisabled ? '#383838' : '#0D99FF',
-              color: applyDisabled ? 'rgba(255, 255, 255, 0.4)' : '#FFFFFF',
-              fontWeight: 600,
-              fontSize: '11px',
-              cursor: applyDisabled ? 'not-allowed' : 'pointer'
-            }}
           >
             Apply Plan
           </button>

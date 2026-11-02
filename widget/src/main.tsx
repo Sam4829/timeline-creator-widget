@@ -466,6 +466,17 @@ function TimelineEstimator() {
           newCols = [{ name: 'Task', type: 'text', order: 0, locked: true }];
         }
 
+        // Find existing text column key so we can preserve task names
+        const prevTextColKey = columnsMap.keys().find(k => {
+          const c = columnsMap.get(k);
+          return c && c.type === 'text';
+        }) ?? 'col-1';
+
+        // Read all existing rows sorted by order
+        const existingRows = rowsMap.keys()
+          .map(k => ({ id: k, ...rowsMap.get(k)! }))
+          .sort((a, b) => a.order - b.order);
+
         // Derive the actual stored keys from the column indices (col-1 … col-N).
         // Never hard-code the suffix — it silently corrupts if columns are reordered.
         const colKeys = newCols.map((_, i) => `col-${i + 1}`);
@@ -475,30 +486,50 @@ function TimelineEstimator() {
         type SeedCells = Record<string, string>;
         let newRows: Array<{ order: number; cells: SeedCells }> = [];
 
-        if (templateName === 'Design & Experience') {
-          newRows = [
-            { order: 0, cells: { [textKey]: 'Onboarding flow', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
-          ];
-        } else if (templateName === 'Design Sprint') {
-          newRows = [
-            { order: 0, cells: { [textKey]: 'Sprint 1', ...(statusKey ? { [statusKey]: 'WIP' } : {}) } }
-          ];
-        } else if (templateName === 'Product Design') {
-          newRows = [
-            { order: 0, cells: { [textKey]: 'Onboarding flow', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
-          ];
-        } else if (templateName === 'Brand/Marketing') {
-          newRows = [
-            { order: 0, cells: { [textKey]: 'Campaign Launch', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
-          ];
-        } else if (templateName === 'UX Research') {
-          newRows = [
-            { order: 0, cells: { [textKey]: 'Usability Study', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
-          ];
-        } else if (templateName === 'Design Systems') {
-          newRows = [
-            { order: 0, cells: { [textKey]: 'Button Component', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
-          ];
+        if (existingRows.length > 0) {
+          // Option A: Automatically preserve existing task/flow names
+          newRows = existingRows.map((r, i) => {
+            const rawVal = r.cells?.[prevTextColKey];
+            const taskLabel = (typeof rawVal === 'string' && rawVal.trim()) ? rawVal.trim() : `Task ${i + 1}`;
+            return {
+              order: i,
+              cells: {
+                [textKey]: taskLabel,
+                ...(statusKey ? { [statusKey]: 'Yet to start' } : {})
+              }
+            };
+          });
+        } else {
+          // Fallback to template's starter default row only if table was empty
+          if (templateName === 'Design & Experience') {
+            newRows = [
+              { order: 0, cells: { [textKey]: 'Onboarding flow', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+            ];
+          } else if (templateName === 'Design Sprint') {
+            newRows = [
+              { order: 0, cells: { [textKey]: 'Sprint 1', ...(statusKey ? { [statusKey]: 'WIP' } : {}) } }
+            ];
+          } else if (templateName === 'Product Design') {
+            newRows = [
+              { order: 0, cells: { [textKey]: 'Onboarding flow', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+            ];
+          } else if (templateName === 'Brand/Marketing') {
+            newRows = [
+              { order: 0, cells: { [textKey]: 'Campaign Launch', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+            ];
+          } else if (templateName === 'UX Research') {
+            newRows = [
+              { order: 0, cells: { [textKey]: 'Usability Study', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+            ];
+          } else if (templateName === 'Design Systems') {
+            newRows = [
+              { order: 0, cells: { [textKey]: 'Button Component', ...(statusKey ? { [statusKey]: 'Yet to start' } : {}) } }
+            ];
+          } else {
+            newRows = [
+              { order: 0, cells: { [textKey]: 'Task 1' } }
+            ];
+          }
         }
 
         columnsMap.keys().forEach(k => columnsMap.delete(k));
@@ -511,6 +542,9 @@ function TimelineEstimator() {
 
         const updated = columnsMap.keys().map((k: string) => ({ id: k, ...columnsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
         emit('update-columns' as any, updated);
+
+        const updatedRows = rowsMap.keys().map((k: string) => ({ id: k, ...rowsMap.get(k)! })).sort((a: any, b: any) => a.order - b.order);
+        emit('update-rows' as any, updatedRows);
       });
 
       const cleanupClose = on('close-settings' as any, () => {

@@ -32,5 +32,7 @@ yarn-error.log*
 # Editor & IDE settings
 .vscode/
 .idea/
+.preview_assets/
+preview_assets/
 *.swp
 *.swo

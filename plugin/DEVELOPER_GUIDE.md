@@ -35,7 +35,7 @@ export interface PluginData {
 *Note: The `cells` array in each row maps directly by index to the `columns` array.*
 
 ### UI Structure
-* The UI uses a tabbed structure (`Setup`, `Structure`, `Plan Details`, `Preview`) managed by the `activeTab` state.
+* The UI uses a tabbed structure (`Setup`, `Columns`, `Plan Details`, `Preview`) managed by the `activeTab` state.
 * `handleGenerate`: Formats the dates appropriately and emits the timeline generation event to the sandbox environment.
 
 ---

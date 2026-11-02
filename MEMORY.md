@@ -10,7 +10,7 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 ## Current State (as of 2026-08-06)
 
 ### Implementation Completed
-- Reordered Settings tabs to: `roster` -> `templates` -> `rows` -> `structure`.
+- Reordered Settings tabs to: `roster` -> `templates` -> `rows` -> `columns`.
 - **Plan Feature**: Standalone flow from widget title bar. Business-day date calculation engine with cursor + accumulator logic, 0.5+ day durations, row-to-row chaining, weekend roll-forward, inline confirmation before overwriting, disabled states with tooltips.
 - **Removed Cell-Based History/Revision System**: Simplified daterange cells to plain ISO strings (`"YYYY-MM-DD"` or `"YYYY-MM-DD - YYYY-MM-DD"`).
 - **Shared `buildISODateRange` helper** in `ui.tsx`.
@@ -23,6 +23,8 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 - **6-Color Avatar Palette**: Expanded avatar colors to 6 distinct tokens with char-code sum hashing (`name.split('').reduce(...)`) for uniform visual distribution across team assignees.
 - **Footer AutoLayout Fix**: Fixed `AutoLayout` crash caused by invalid `horizontalAlignItems="space-between"` prop by using `spacing="auto"`.
 - **Widget Manifest & Sandbox Config**: Updated `editorType` to `["figma", "figjam"]` and added `networkAccess: { allowedDomains: ["none"] }` to ensure compatibility with both Figma Design and FigJam canvases and comply with Figma CSP security requirements.
+- **Unified Modal Redesign**: Redesigned all 5 modal dialogs in `widget/src/ui.tsx` and `widget/src/ui.css` based on `design.md` and `linear-modal-redesign.html`. Full dark mode canvas parity (`#1E1E1E` / `#2C2C2C` / `#383838`), Azure Blue primary CTA (`#0A6DC2`), far-right duration steppers in Plan Timeline, unified `btn-ghost-dashed` for all add buttons, rich preset template cards with icons/tags, 6-color team avatar hashing, 6-dot drag handles, lock indicator for primary column, and two-step inline delete confirmations without `window.confirm()`. Zero functionality changes.
+- **Template Task Name Preservation (Option A)**: Updated `apply-template` in `main.tsx` to automatically preserve existing rows and their primary column task names (`Task / Screen`) across template changes instead of wiping them. Emits `update-rows` to synchronize Settings immediately. Updated template warning toast and banner in `ui.tsx`.
 - **Remote Repo**: `https://github.com/Sam4829/timeline-creator-widget.git` (main branch). Latest commit: `32c0c53`.
 
 ### Active Checklist
@@ -32,6 +34,7 @@ This repository contains the **Timeline Estimator**, a dual-component project fo
 - [x] Remove cell-based history/revision system.
 - [x] Remember plan timeline durations across sessions.
 - [x] Add Rows tab to Settings popup.
+- [x] Implement unified modal redesign in `widget/src/ui.tsx` and `widget/src/ui.css`.
 - [x] Build verification -- `npm run build` passing with zero errors.
 - [x] Push all changes to remote GitHub repo.
 
